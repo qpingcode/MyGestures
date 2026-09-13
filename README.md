@@ -32,9 +32,10 @@ MyGestures is published as a Full build (bundled .NET runtime) and a Lite build 
 | --- | --- | --- | --- | --- |
 | **Full** | **Stable** | — | Not published yet | Not published yet |
 | **Lite** | **Stable** | — | Not published yet | Not published yet |
-| **Full** | **Beta** | — | Not published yet | Not published yet |
-| **Lite** | **Beta** | — | Not published yet | Not published yet |
+| **Full** | **Beta** | 0.0.1 | [Download](https://github.com/qpingcode/MyGestures/releases/download/v0.0.1/MyGestures-0.0.1-windows-x64-full-setup.exe) | [Download](https://github.com/qpingcode/MyGestures/releases/download/v0.0.1/MyGestures-0.0.1-windows-x64-full-portable.zip) |
+| **Lite** | **Beta** | 0.0.1 | [Download](https://github.com/qpingcode/MyGestures/releases/download/v0.0.1/MyGestures-0.0.1-windows-x64-lite-setup.exe) | [Download](https://github.com/qpingcode/MyGestures/releases/download/v0.0.1/MyGestures-0.0.1-windows-x64-lite-portable.zip) |
 <!-- mygestures-downloads:end -->
+
 
 Stable is the recommended channel. Push a git tag named `release-YYYY-MM-DD` (for example `release-2026-09-13`) to publish a stable build. Every push to `main` publishes a beta.
 
