@@ -32,9 +32,10 @@ MyGestures 提供完整版（内置 .NET 运行时）与精简版（需要 .NET 
 | --- | --- | --- | --- | --- |
 | **完整版** | **Stable** | — | 尚未发布 | 尚未发布 |
 | **精简版** | **Stable** | — | 尚未发布 | 尚未发布 |
-| **完整版** | **Beta** | 0.0.2 | [下载](https://github.com/qpingcode/MyGestures/releases/download/v0.0.2/MyGestures-0.0.2-windows-x64-full-setup.exe) | [下载](https://github.com/qpingcode/MyGestures/releases/download/v0.0.2/MyGestures-0.0.2-windows-x64-full-portable.zip) |
-| **精简版** | **Beta** | 0.0.2 | [下载](https://github.com/qpingcode/MyGestures/releases/download/v0.0.2/MyGestures-0.0.2-windows-x64-lite-setup.exe) | [下载](https://github.com/qpingcode/MyGestures/releases/download/v0.0.2/MyGestures-0.0.2-windows-x64-lite-portable.zip) |
+| **完整版** | **Beta** | 0.0.3 | [下载](https://github.com/qpingcode/MyGestures/releases/download/v0.0.3/MyGestures-0.0.3-windows-x64-full-setup.exe) | [下载](https://github.com/qpingcode/MyGestures/releases/download/v0.0.3/MyGestures-0.0.3-windows-x64-full-portable.zip) |
+| **精简版** | **Beta** | 0.0.3 | [下载](https://github.com/qpingcode/MyGestures/releases/download/v0.0.3/MyGestures-0.0.3-windows-x64-lite-setup.exe) | [下载](https://github.com/qpingcode/MyGestures/releases/download/v0.0.3/MyGestures-0.0.3-windows-x64-lite-portable.zip) |
 <!-- mygestures-downloads:end -->
+
 
 
 
