@@ -363,7 +363,6 @@ public class MouseGestureDetector : IDisposable
 
         _trailViewModel = new MouseTrailViewModel();
         _trailViewModel.ProcessName = _previousProcessName ?? "";
-        _trailViewModel.AddPoint(_point);
         
         // 初始状态：显示前5个可能的手势
         UpdatePossibleGestures();
@@ -493,8 +492,8 @@ public class MouseGestureDetector : IDisposable
         if (!_initialMoveValid)
         {
            // _logger.LogDebug("Mouse Right Click Up ( Invalid Move, Simulating Right Click )");
-            _mouseHelper.RightClick(_point);
             CloseTrailWindow();
+            _mouseHelper.RightClick(_point);
             return;
         }
         else
@@ -554,6 +553,7 @@ public class MouseGestureDetector : IDisposable
         dispatcher.Invoke(() =>
         {
             _trailWindow?.Close();
+            _trailWindow = null;
             _trailViewModel = null;
         });
     }
