@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Win32;
 using MyGestures.Localization;
+using MyGestures.Models;
 using MyGestures.Services;
 using MyGestures.Utils;
 using MyGestures.Views;
@@ -21,6 +22,8 @@ public sealed class WebSettingsIntegrationTests
     private const string EditedActionName = "Edited gesture";
     private const string ReadRequestId = "smoke-read";
     private const string SaveRequestId = "smoke-save";
+    private const int ScrollTestGestureCount = 30;
+    private const double LayoutTolerancePixels = 2;
 
     [Test]
     public void PackagedWebPage_LoadsAndReadsAndSavesThroughNativeBridge()
@@ -31,12 +34,14 @@ public sealed class WebSettingsIntegrationTests
         var localization = new LocalizationService();
         var store = new GestureSettingsStore(localization, root, Path.Combine(root, "legacy"));
         store.Current.Locale = "en-US";
+        for (var index = 0; index < ScrollTestGestureCount; index++)
+            store.Current.Gestures.Add(new GestureConfig { Id = Guid.NewGuid().ToString("N"), ActionName = $"Scroll test {index}" });
         store.Save(store.Current);
         var mouse = new MouseHelper();
         using var detector = new MouseGestureDetector(mouse, NullLogger<MouseGestureDetector>.Instance, NullLogger<MouseTrailWindow>.Instance, localization);
         using var registry = new GestureRegistry(NullLogger<GestureRegistry>.Instance, detector);
         var autoStart = new AutoStartService(@"Software\MyGestures.Test\WebSettings", Guid.NewGuid().ToString("N"));
-        var window = new SettingsWindow(store, registry, mouse, localization, autoStart) { ShowInTaskbar = false, ShowActivated = false, Left = HiddenWindowCoordinate, Top = HiddenWindowCoordinate };
+        var window = new SettingsWindow(store, registry, mouse, localization, autoStart) { WindowStartupLocation = WindowStartupLocation.Manual, ShowInTaskbar = false, ShowActivated = false, Left = HiddenWindowCoordinate, Top = HiddenWindowCoordinate };
         try
         {
             RunWithDispatcher(async () =>
@@ -59,6 +64,12 @@ public sealed class WebSettingsIntegrationTests
                 var serializedName = JsonSerializer.Serialize(EditedActionName);
                 await window.Browser.ExecuteScriptAsync($"(() => {{ const input = document.querySelector('.col-name input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, {serializedName}); input.dispatchEvent(new Event('input', {{ bubbles: true }})); }})();");
                 await WaitUntil(() => Task.FromResult(store.Current.Gestures[0].ActionName == EditedActionName), ResponseTimeout);
+                await window.Browser.ExecuteScriptAsync("document.querySelector('.gesture-body').scrollTop = 0; document.querySelector('.table-toolbar button').click();");
+                await WaitUntil(async () => await window.Browser.ExecuteScriptAsync("Boolean(document.querySelector('.gesture-row:last-child.new-gesture input'))") == "true", ResponseTimeout);
+                await WaitUntil(async () => await window.Browser.ExecuteScriptAsync($"(() => {{ const body = document.querySelector('.gesture-body'); const row = body.lastElementChild; return body.scrollTop > 0 && row.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom + {LayoutTolerancePixels}; }})()") == "true", ResponseTimeout);
+                Assert.That(await window.Browser.ExecuteScriptAsync("document.activeElement === document.querySelector('.gesture-row:last-child input')"), Is.EqualTo("true"), "Add must focus the new row's name input.");
+                await WaitUntil(async () => await window.Browser.ExecuteScriptAsync("!document.querySelector('.gesture-row.new-gesture')") == "true", ResponseTimeout);
+                Assert.That(await window.Browser.ExecuteScriptAsync("getComputedStyle(document.querySelector('.gesture-row:last-child')).backgroundColor"), Is.EqualTo("\"rgba(0, 0, 0, 0)\""), "The new row background must fade away.");
                 await window.Browser.ExecuteScriptAsync("document.querySelector('[data-tab=\"general\"]').click();");
                 await WaitUntil(async () => await window.Browser.ExecuteScriptAsync("Boolean(document.querySelector('[data-setting=\"language\"] .n-base-selection'))") == "true", ResponseTimeout);
                 await window.Browser.ExecuteScriptAsync("document.querySelector('[data-setting=\"language\"] .n-base-selection').click();");

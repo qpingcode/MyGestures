@@ -1,7 +1,6 @@
 {
   "Gestures.Web.AutoStart": "Démarrer avec Windows",
   "Gestures.Web.AutoStartDescription": "Ouvrir MyGestures dans la zone de notification à la connexion.",
-  "Gestures.Web.Description": "Maintenez le bouton droit et dessinez, puis relâchez pour exécuter l’action. La fermeture de cette fenêtre laisse les gestes actifs dans la zone de notification.",
   "Gestures.Web.Enable": "Activer les gestes",
   "Gestures.Web.EnableDescription": "Écouter les gestes du bouton droit sur cet ordinateur.",
   "Gestures.Web.GameMode": "Mode jeu",

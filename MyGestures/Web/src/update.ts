@@ -68,7 +68,7 @@ export async function openReleases(): Promise<void> {
     await bus.call(Methods.OpenReleases);
 }
 
-export function useUpdateEvents(): void {
+export function useUpdateEvents(showUpdatePanel: () => void): void {
     let stopProgress: (() => void) | undefined;
     let stopCheck: (() => void) | undefined;
     onMounted(async () => {
@@ -76,7 +76,10 @@ export function useUpdateEvents(): void {
             update.progress = payload.percent ?? 0;
             update.status = UpdateStatus.Downloading;
         });
-        stopCheck = bus.on(HostEvents.CheckUpdates, () => { void checkForUpdates(); });
+        stopCheck = bus.on(HostEvents.CheckUpdates, () => {
+            showUpdatePanel();
+            void checkForUpdates();
+        });
         try { await loadUpdateInfo(); }
         catch { /* The host is unavailable in a plain browser preview. */ }
     });

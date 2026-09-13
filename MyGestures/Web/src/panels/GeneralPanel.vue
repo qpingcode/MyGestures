@@ -3,9 +3,8 @@ import { computed } from "vue";
 import { t } from "../i18n";
 import { store } from "../store";
 import { Theme } from "../theme";
-import { UpdateStatus, checkForUpdates, downloadUpdate, openReleases, update, useUpdateEvents } from "../update";
+import { UpdateStatus, checkForUpdates, downloadUpdate, openReleases, update } from "../update";
 
-useUpdateEvents();
 const busy = computed(() => update.status === UpdateStatus.Checking || update.status === UpdateStatus.Downloading);
 const updateMessage = computed(() => {
     if (update.status === UpdateStatus.Checking) return t("Gestures.Web.UpdateChecking", "Checking for updates...");

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref } from "vue";
+import type { InputInst } from "naive-ui";
 import HighlightText from "../components/HighlightText.vue";
 import TableToolbar from "../components/TableToolbar.vue";
 import { bus, Methods } from "../bus";
@@ -17,6 +18,7 @@ const DIRECTION_ARROWS: Record<Direction, string> = {
 
 const GESTURE_VISIBLE_DIRS = 4;
 const UndoDismissMilliseconds = 8000;
+const NewGestureHighlightMilliseconds = 3000;
 const ImeKeyCode = 229;
 
 const hintVisible = ref(false);
@@ -25,6 +27,9 @@ let hintResolve: ((confirmed: boolean) => void) | null = null;
 
 const gestures = computed(() => store.gestureConfigs || []);
 const tableQuery = ref("");
+const gestureBody = ref<HTMLElement | null>(null);
+const highlightedGestureId = ref<string | null>(null);
+let highlightTimer: ReturnType<typeof setTimeout> | undefined;
 const highlightQuery = computed(() => tableQuery.value.trim() || store.searchQuery);
 
 
@@ -140,7 +145,7 @@ const filteredGestures = computed(() => {
 type EditableField = "name" | "process";
 
 const editing = ref<{ id: string; field: EditableField } | null>(null);
-const editInputRef = ref<{ focus: () => void; $el?: HTMLElement } | null>(null);
+const editInputRef = ref<InputInst[]>([]);
 const editComposing = ref(false);
 
 function processText(gesture: GestureConfig): string {
@@ -154,7 +159,7 @@ function isEditing(gesture: GestureConfig, field: EditableField): boolean {
 async function startEdit(gesture: GestureConfig, field: EditableField): Promise<void> {
     editing.value = { id: gesture.id, field };
     await nextTick();
-    editInputRef.value?.focus();
+    editInputRef.value[0]?.focus();
 }
 
 function stopEdit(): void {
@@ -163,7 +168,7 @@ function stopEdit(): void {
 }
 
 function isEditInputFocused(): boolean {
-    const root = editInputRef.value?.$el;
+    const root = editInputRef.value[0]?.wrapperElRef;
     const active = document.activeElement;
     return !!(root && active && root.contains(active));
 }
@@ -193,7 +198,7 @@ function markDirty(): void {
     markGesturesDirty();
 }
 
-function addGesture(): void {
+async function addGesture(): Promise<void> {
     if (!store.gestureConfigs) store.gestureConfigs = [];
     const created: GestureConfig = {
         id: crypto.randomUUID(),
@@ -206,8 +211,15 @@ function addGesture(): void {
         isEnabled: true,
     };
     store.gestureConfigs.push(created);
+    tableQuery.value = "";
+    clearTimeout(highlightTimer);
+    highlightedGestureId.value = created.id;
+    highlightTimer = setTimeout(() => { highlightedGestureId.value = null; }, NewGestureHighlightMilliseconds);
     markDirty();
-    void startEdit(created, "name");
+    await startEdit(created, "name");
+    if (highlightedGestureId.value !== created.id) return;
+    const body = gestureBody.value;
+    if (body) body.scrollTop = body.scrollHeight;
 }
 
 type DeletedGesture = { gesture: GestureConfig; index: number };
@@ -253,7 +265,10 @@ function removeGesture(gesture: GestureConfig): void {
     markDirty();
 }
 
-onBeforeUnmount(clearUndo);
+onBeforeUnmount(() => {
+    clearUndo();
+    clearTimeout(highlightTimer);
+});
 
 function onProcessChange(gesture: GestureConfig, value: string): void {
     gesture.processNames = value.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
@@ -319,7 +334,7 @@ async function startRecording(gesture: GestureConfig): Promise<void> {
 </script>
 
 <template>
-    <div>
+    <div class="gestures-settings">
         <TableToolbar
             v-model="tableQuery"
             :placeholder="t('Plugin.Settings.Table.Search', 'Search')"
@@ -343,130 +358,139 @@ async function startRecording(gesture: GestureConfig): Promise<void> {
                 <div class="col-enabled" :title="headers.enabledTip">{{ headers.enabled }}</div>
                 <div class="col-actions"></div>
             </div>
-            <div v-for="(gesture, index) in filteredGestures" :key="gesture.id || index" class="gesture-row">
-                <div class="col-name">
-                    <i
-                        v-if="conflicts.get(gesture.id)"
-                        class="mdi mdi-alert conflict-icon"
-                        :title="conflicts.get(gesture.id)"
-                    ></i>
-                    <n-input
-                        v-if="isEditing(gesture, 'name')"
-                        ref="editInputRef"
-                        :value="gesture.actionName"
-                        :placeholder="t('Plugin.Settings.Gestures.NamePlaceholder', 'e.g. Close Tab')"
-                        size="small"
-                        @update:value="
-                            gesture.actionName = String($event || '');
-                            markDirty();
-                        "
-                        @compositionstart="editComposing = true"
-                        @compositionend="editComposing = false"
-                        @blur="onEditBlur"
-                        @keydown="onEditKeydown"
-                        @keydown.enter.prevent="onEditConfirm"
-                        @keydown.esc.prevent="onEditConfirm"
-                    />
-                    <button
-                        v-else
-                        type="button"
-                        class="flat-display"
-                        :class="{ empty: !gesture.actionName }"
-                        :title="gesture.actionName || t('Plugin.Settings.Gestures.NamePlaceholder', 'e.g. Close Tab')"
-                        @click="startEdit(gesture, 'name')"
-                    >
-                        <HighlightText
-                            v-if="gesture.actionName"
-                            :text="gesture.actionName"
-                            :query="highlightQuery"
+            <div ref="gestureBody" class="gesture-body">
+                <div
+                    v-for="(gesture, index) in filteredGestures"
+                    :key="gesture.id || index"
+                    class="gesture-row"
+                    :class="{ 'new-gesture': highlightedGestureId === gesture.id }"
+                    :data-gesture-id="gesture.id"
+                    :style="{ '--new-gesture-highlight-duration': `${NewGestureHighlightMilliseconds}ms` }"
+                >
+                    <div class="col-name">
+                        <i
+                            v-if="conflicts.get(gesture.id)"
+                            class="mdi mdi-alert conflict-icon"
+                            :title="conflicts.get(gesture.id)"
+                        ></i>
+                        <n-input
+                            v-if="isEditing(gesture, 'name')"
+                            ref="editInputRef"
+                            :value="gesture.actionName"
+                            :placeholder="t('Plugin.Settings.Gestures.NamePlaceholder', 'e.g. Close Tab')"
+                            size="small"
+                            @update:value="
+                                gesture.actionName = String($event || '');
+                                markDirty();
+                            "
+                            @compositionstart="editComposing = true"
+                            @compositionend="editComposing = false"
+                            @blur="onEditBlur"
+                            @keydown="onEditKeydown"
+                            @keydown.enter.prevent="onEditConfirm"
+                            @keydown.esc.prevent="onEditConfirm"
                         />
-                        <span v-else>{{ t("Plugin.Settings.Gestures.NamePlaceholder", "e.g. Close Tab") }}</span>
-                    </button>
-                </div>
-                <div class="col-gesture">
-                    <button
-                        type="button"
-                        class="flat-display"
-                        :class="{ empty: gesture.directions.length === 0 }"
-                        :title="
-                            gesture.directions.length === 0
-                                ? t('Plugin.Settings.Gestures.ClickToRecord', 'Click to record in the target app')
-                                : formatGestureDisplay(gesture.directions).full
-                        "
-                        @click="startRecording(gesture)"
-                    >
-                        <span v-if="gesture.directions.length === 0">
-                            {{ t("Plugin.Settings.Gestures.NoGesture", "Not set") }}
-                        </span>
-                        <HighlightText
+                        <button
                             v-else
-                            :text="formatGestureDisplay(gesture.directions).visible"
-                            :query="highlightQuery"
+                            type="button"
+                            class="flat-display"
+                            :class="{ empty: !gesture.actionName }"
+                            :title="gesture.actionName || t('Plugin.Settings.Gestures.NamePlaceholder', 'e.g. Close Tab')"
+                            @click="startEdit(gesture, 'name')"
+                        >
+                            <HighlightText
+                                v-if="gesture.actionName"
+                                :text="gesture.actionName"
+                                :query="highlightQuery"
+                            />
+                            <span v-else>{{ t("Plugin.Settings.Gestures.NamePlaceholder", "e.g. Close Tab") }}</span>
+                        </button>
+                    </div>
+                    <div class="col-gesture">
+                        <button
+                            type="button"
+                            class="flat-display"
+                            :class="{ empty: gesture.directions.length === 0 }"
+                            :title="
+                                gesture.directions.length === 0
+                                    ? t('Plugin.Settings.Gestures.ClickToRecord', 'Click to record in the target app')
+                                    : formatGestureDisplay(gesture.directions).full
+                            "
+                            @click="startRecording(gesture)"
+                        >
+                            <span v-if="gesture.directions.length === 0">
+                                {{ t("Plugin.Settings.Gestures.NoGesture", "Not set") }}
+                            </span>
+                            <HighlightText
+                                v-else
+                                :text="formatGestureDisplay(gesture.directions).visible"
+                                :query="highlightQuery"
+                            />
+                        </button>
+                    </div>
+                    <div class="col-process">
+                        <n-input
+                            v-if="isEditing(gesture, 'process')"
+                            ref="editInputRef"
+                            :value="processText(gesture)"
+                            :placeholder="t('Plugin.Settings.Gestures.ProcessPlaceholder', 'Any')"
+                            :title="t('Plugin.Settings.Gestures.ProcessHint', 'Comma-separated process names')"
+                            size="small"
+                            @update:value="onProcessChange(gesture, String($event || ''))"
+                            @compositionstart="editComposing = true"
+                            @compositionend="editComposing = false"
+                            @blur="onEditBlur"
+                            @keydown="onEditKeydown"
+                            @keydown.enter.prevent="onEditConfirm"
+                            @keydown.esc.prevent="onEditConfirm"
                         />
-                    </button>
-                </div>
-                <div class="col-process">
-                    <n-input
-                        v-if="isEditing(gesture, 'process')"
-                        ref="editInputRef"
-                        :value="processText(gesture)"
-                        :placeholder="t('Plugin.Settings.Gestures.ProcessPlaceholder', 'Any')"
-                        :title="t('Plugin.Settings.Gestures.ProcessHint', 'Comma-separated process names')"
-                        size="small"
-                        @update:value="onProcessChange(gesture, String($event || ''))"
-                        @compositionstart="editComposing = true"
-                        @compositionend="editComposing = false"
-                        @blur="onEditBlur"
-                        @keydown="onEditKeydown"
-                        @keydown.enter.prevent="onEditConfirm"
-                        @keydown.esc.prevent="onEditConfirm"
-                    />
-                    <button
-                        v-else
-                        type="button"
-                        class="flat-display"
-                        :class="{ empty: !processText(gesture) }"
-                        :title="processText(gesture) || t('Plugin.Settings.Gestures.ProcessHint', 'Comma-separated process names')"
-                        @click="startEdit(gesture, 'process')"
-                    >
-                        <HighlightText
-                            v-if="processText(gesture)"
-                            :text="processText(gesture)"
-                            :query="highlightQuery"
+                        <button
+                            v-else
+                            type="button"
+                            class="flat-display"
+                            :class="{ empty: !processText(gesture) }"
+                            :title="processText(gesture) || t('Plugin.Settings.Gestures.ProcessHint', 'Comma-separated process names')"
+                            @click="startEdit(gesture, 'process')"
+                        >
+                            <HighlightText
+                                v-if="processText(gesture)"
+                                :text="processText(gesture)"
+                                :query="highlightQuery"
+                            />
+                            <span v-else>{{ t("Plugin.Settings.Gestures.ProcessPlaceholder", "Any") }}</span>
+                        </button>
+                    </div>
+                    <div class="col-trigger">
+                        <button
+                            type="button"
+                            class="flat-display"
+                            :class="{ empty: formatActionDisplay(gesture).empty }"
+                            :title="formatActionDisplay(gesture).title"
+                            @click="setAction(gesture)"
+                        >
+                            {{ formatActionDisplay(gesture).text }}
+                        </button>
+                    </div>
+                    <div class="col-enabled">
+                        <n-checkbox
+                            :aria-label="headers.enabled"
+                            :checked="gesture.isEnabled"
+                            @update:checked="
+                                gesture.isEnabled = !!$event;
+                                markDirty();
+                            "
                         />
-                        <span v-else>{{ t("Plugin.Settings.Gestures.ProcessPlaceholder", "Any") }}</span>
-                    </button>
-                </div>
-                <div class="col-trigger">
-                    <button
-                        type="button"
-                        class="flat-display"
-                        :class="{ empty: formatActionDisplay(gesture).empty }"
-                        :title="formatActionDisplay(gesture).title"
-                        @click="setAction(gesture)"
-                    >
-                        {{ formatActionDisplay(gesture).text }}
-                    </button>
-                </div>
-                <div class="col-enabled">
-                    <n-checkbox
-                        :aria-label="headers.enabled"
-                        :checked="gesture.isEnabled"
-                        @update:checked="
-                            gesture.isEnabled = !!$event;
-                            markDirty();
-                        "
-                    />
-                </div>
-                <div class="col-actions">
-                    <button
-                        type="button"
-                        class="icon-delete-btn"
-                        :title="t('Plugin.Settings.Gestures.Delete', 'Delete')"
-                        @click="removeGesture(gesture)"
-                    >
-                        <i class="mdi mdi-trash-can-outline delete-icon"></i>
-                    </button>
+                    </div>
+                    <div class="col-actions">
+                        <button
+                            type="button"
+                            class="icon-delete-btn"
+                            :title="t('Plugin.Settings.Gestures.Delete', 'Delete')"
+                            @click="removeGesture(gesture)"
+                        >
+                            <i class="mdi mdi-trash-can-outline delete-icon"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -520,6 +544,32 @@ async function startRecording(gesture: GestureConfig): Promise<void> {
 </template>
 
 <style scoped>
+.gestures-settings {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.gestures-settings > :deep(.table-toolbar) {
+    flex-shrink: 0;
+}
+
+.gesture-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.gesture-body {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
 .empty {
     padding: 24px 0;
     text-align: center;
@@ -533,7 +583,28 @@ async function startRecording(gesture: GestureConfig): Promise<void> {
     gap: 6px;
 }
 
+.gesture-row.new-gesture {
+    border-radius: 8px;
+    animation: new-gesture-highlight var(--new-gesture-highlight-duration) ease-out both;
+}
+
+@keyframes new-gesture-highlight {
+    0%, 50% { background-color: rgba(59, 130, 246, 0.22); box-shadow: inset 3px 0 #3b82f6; }
+    100% { background-color: transparent; box-shadow: inset 3px 0 transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gesture-row.new-gesture {
+        animation: none;
+        background-color: rgba(59, 130, 246, 0.22);
+        box-shadow: inset 3px 0 #3b82f6;
+    }
+}
+
 .gesture-header {
+    flex-shrink: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
     padding: 8px 0 10px;
     border-bottom: 1px solid var(--mt-border, #404040);
     font-size: var(--mt-font-size-small, 12px);

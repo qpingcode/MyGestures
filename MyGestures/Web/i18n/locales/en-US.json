@@ -1,7 +1,6 @@
 {
   "Gestures.Web.AutoStart": "Start with Windows",
   "Gestures.Web.AutoStartDescription": "Open MyGestures in the tray when you sign in.",
-  "Gestures.Web.Description": "Hold the right mouse button and draw, then release to run the assigned action. Closing this window keeps gestures running in the system tray.",
   "Gestures.Web.Enable": "Enable gestures",
   "Gestures.Web.EnableDescription": "Listen for right-button gestures on this computer.",
   "Gestures.Web.GameMode": "Game mode",

@@ -16,12 +16,6 @@
       "placeholders": []
     },
     {
-      "defaultValue": "Hold the right mouse button and draw, then release to run the assigned action. Closing this window keeps gestures running in the system tray.",
-      "references": [],
-      "key": "Gestures.Web.Description",
-      "placeholders": []
-    },
-    {
       "defaultValue": "Enable gestures",
       "references": [],
       "key": "Gestures.Web.Enable",

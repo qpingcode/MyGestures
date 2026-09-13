@@ -1,7 +1,6 @@
 {
   "Gestures.Web.AutoStart": "开机自启动",
   "Gestures.Web.AutoStartDescription": "登录 Windows 后在托盘启动 MyGestures。",
-  "Gestures.Web.Description": "按住鼠标右键绘制手势，松开后执行对应动作。关闭此窗口后，手势仍会在系统托盘中运行。",
   "Gestures.Web.Enable": "启用鼠标手势",
   "Gestures.Web.EnableDescription": "在本机监听鼠标右键手势。",
   "Gestures.Web.GameMode": "游戏模式",

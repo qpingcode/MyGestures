@@ -6,10 +6,12 @@ import GesturesPanel from "./panels/GesturesPanel.vue";
 import { locale, setLocale, t } from "./i18n";
 import { store, loadSettings, markGesturesDirty } from "./store";
 import { isDarkTheme } from "./theme";
+import { useUpdateEvents } from "./update";
 
 const TabGeneral = "general";
 const TabGestures = "gestures";
 const tab = ref(TabGeneral);
+useUpdateEvents(() => { tab.value = TabGeneral; });
 const localeOptions = [{ label: "English", value: "en-US" }, { label: "简体中文", value: "zh-CN" }, { label: "Français", value: "fr-FR" }];
 const uiLocale = computed(() => locale.value === "zh-CN" ? zhCN : locale.value === "fr-FR" ? frFR : enUS);
 const naiveTheme = computed(() => isDarkTheme(store.theme) ? darkTheme : null);
@@ -31,13 +33,7 @@ onMounted(loadSettings);
 </script>
 <template>
     <n-config-provider :theme="naiveTheme" :theme-overrides="themeOverrides" :locale="uiLocale">
-        <main>
-            <header>
-                <div class="brand">
-                    <h1>MyGestures</h1>
-                    <p>{{ t("Gestures.Web.Description", "Hold the right mouse button and draw, then release to run the assigned action. Closing this window keeps gestures running in the system tray.") }}</p>
-                </div>
-            </header>
+        <main :class="{ 'gestures-layout': tab === TabGestures }">
             <nav class="tabs" role="tablist">
                 <button
                     v-for="item in tabs"
@@ -99,10 +95,8 @@ html[data-theme="light"] {
 }
 body { margin: 0; background: var(--mt-bg, #141414); color: var(--mt-text, #f3f1ec); font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif; }
 main { box-sizing: border-box; min-height: 100vh; padding: 28px 32px 40px; }
-header { margin-bottom: 22px; }
-.brand { min-width: 0; }
-h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.03em; }
-header p { margin: 8px 0 0; max-width: 640px; color: var(--mt-text-secondary, #b3aea4); line-height: 1.6; font-size: 13px; }
+main.gestures-layout { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+main.gestures-layout > .tabs, main.gestures-layout > .error { flex-shrink: 0; }
 .tabs { display: flex; gap: 6px; width: fit-content; margin-bottom: 22px; padding: 4px; border-radius: 12px; background: var(--mt-chip, #111); }
 .tab { appearance: none; border: none; background: transparent; color: var(--mt-text-secondary, #b3aea4); padding: 8px 16px; border-radius: 9px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .tab.active { background: var(--mt-surface, #1d1d1d); color: var(--mt-text, #f3f1ec); box-shadow: 0 1px 4px var(--mt-shadow, rgba(0,0,0,.28)); }

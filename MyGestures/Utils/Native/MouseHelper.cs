@@ -10,6 +10,14 @@ public class MouseHelper
     public const int SimulatedEventTag = 19900620;
     private const int INPUT_MOUSE = 0;
     private bool isSimulatingInput;
+    private readonly Func<uint, Native.INPUT[], int, uint> sendInput;
+
+    public MouseHelper() : this(Native.SendInput) { }
+
+    internal MouseHelper(Func<uint, Native.INPUT[], int, uint> sendInput)
+    {
+        this.sendInput = sendInput;
+    }
 
     public bool IsSimulatingInput => isSimulatingInput;
 
@@ -36,7 +44,7 @@ public class MouseHelper
         try
         {
             var inputs = CreateMouseInputs(button, point);
-            var result = Native.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(Native.INPUT)));
+            var result = sendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(Native.INPUT)));
             if (result == 0)
             {
                 throw new Win32Exception();
