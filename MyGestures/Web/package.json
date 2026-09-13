@@ -1,0 +1,28 @@
+{
+  "name": "mygestures-settings",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "vue-tsc --noEmit",
+    "build": "npm run check && vite build"
+  },
+  "dependencies": {
+    "@mdi/font": "7.4.47",
+    "i18next": "25.5.2",
+    "naive-ui": "2.40.1",
+    "vue": "3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "5.2.1",
+    "typescript": "5.9.2",
+    "vite": "6.0.7",
+    "vue-tsc": "2.2.12"
+  },
+  "i18n": {
+    "defaultLocale": "en-US",
+    "catalog": "i18n/catalog.en-US.json",
+    "localesPath": "i18n/locales",
+    "supportedLocales": ["en-US", "zh-CN", "fr-FR"]
+  }
+}

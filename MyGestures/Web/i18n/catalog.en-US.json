@@ -1,0 +1,329 @@
+{
+  "schemaVersion": 1,
+  "scope": "app:mygestures",
+  "sourceLocale": "en-US",
+  "entries": [
+    {
+      "defaultValue": "Hold the right mouse button and draw, then release to run the assigned action. Closing this window keeps gestures running in the system tray.",
+      "references": [],
+      "key": "Gestures.Web.Description",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Enable gestures",
+      "references": [],
+      "key": "Gestures.Web.Enable",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Open this page in MyGestures.",
+      "references": [],
+      "key": "Gestures.Web.HostUnavailable",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Language",
+      "references": [],
+      "key": "Gestures.Web.Language",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Save",
+      "references": [],
+      "key": "Gestures.Web.Save",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "The operation timed out. Try again.",
+      "references": [],
+      "key": "Gestures.Web.Timeout",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Add Gesture",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.Add",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Click to record",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.ClickToRecord",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Click to set action",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.ClickToSetAction",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Conflicts with \"{{name}}\", which will take priority.",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.ConflictLose",
+      "placeholders": [
+        "name"
+      ]
+    },
+    {
+      "defaultValue": "Conflicts with \"{{name}}\". This one takes priority.",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.ConflictWins",
+      "placeholders": [
+        "name"
+      ]
+    },
+    {
+      "defaultValue": "Delete",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.Delete",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "No gestures configured",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.Empty",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Action Name",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.HeaderAction",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "The name of this gesture action.",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.HeaderActionTip",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Enabled",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.HeaderEnabled",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Enable or disable this gesture.",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.HeaderEnabledTip",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Trigger Gesture",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.HeaderGesture",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Click to re-record. Hold the right mouse button and draw.",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.HeaderGestureTip",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Target Process",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.HeaderProcess",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Only trigger this gesture in the specified processes. Leave empty to apply to all processes.",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.HeaderProcessTip",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Action",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.HeaderTrigger",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "The action to run. Click to choose a keyboard shortcut or mouse button.",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.HeaderTriggerTip",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Back (XButton1)",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.MouseBack",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Back",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.MouseBackShort",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Forward (XButton2)",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.MouseForward",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Forward",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.MouseForwardShort",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Left",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.MouseLeft",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Left",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.MouseLeftShort",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Middle",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.MouseMiddle",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Middle",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.MouseMiddleShort",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Right",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.MouseRight",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Right",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.MouseRightShort",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "e.g. Close Tab",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.NamePlaceholder",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Not set",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.NoAction",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Not set",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.NoGesture",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Comma-separated process names",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.ProcessHint",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Any",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.ProcessPlaceholder",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Record",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.Record",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Hold right button to draw...",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.Recording",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Gestures saved and applied.",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.Saved",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Hotkey",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.TriggerHotkey",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Mouse Button",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.TriggerMouse",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Unnamed",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.Unnamed",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Add",
+      "references": [],
+      "key": "Plugin.Settings.Table.Add",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Apply",
+      "references": [],
+      "key": "Plugin.Settings.Table.Apply",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Clone",
+      "references": [],
+      "key": "Plugin.Settings.Table.Clone",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Delete",
+      "references": [],
+      "key": "Plugin.Settings.Table.Delete",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Edit",
+      "references": [],
+      "key": "Plugin.Settings.Table.Edit",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "No items",
+      "references": [],
+      "key": "Plugin.Settings.Table.Empty",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "No",
+      "references": [],
+      "key": "Plugin.Settings.Table.No",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Search",
+      "references": [],
+      "key": "Plugin.Settings.Table.Search",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Yes",
+      "references": [],
+      "key": "Plugin.Settings.Table.Yes",
+      "placeholders": []
+    }
+  ]
+}

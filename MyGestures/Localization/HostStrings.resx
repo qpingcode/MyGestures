@@ -1,0 +1,77 @@
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <data name="Gestures.Tray.Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Gestures.Tray.Exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="Gestures.Error.Startup" xml:space="preserve">
+    <value>MyGestures could not start. Check its configuration and WebView2 installation.</value>
+  </data>
+  <data name="Gestures.Error.Settings" xml:space="preserve">
+    <value>The settings page could not be opened. Check the WebView2 installation and rebuild the Web assets.</value>
+  </data>
+  <data name="Gestures.Error.Save" xml:space="preserve">
+    <value>The operation failed. Check your configuration and try again.</value>
+  </data>
+  <data name="Gestures.Trail.NoMatch" xml:space="preserve">
+    <value>No matching gesture</value>
+  </data>
+  <data name="Gestures.Capture.Title" xml:space="preserve">
+    <value>Choose action</value>
+  </data>
+  <data name="Gestures.Capture.Hint" xml:space="preserve">
+    <value>Press a keyboard shortcut or click a mouse button in the box.</value>
+  </data>
+  <data name="Gestures.Capture.Confirm" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+  <data name="Gestures.Capture.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Gestures.Default.CloseTab" xml:space="preserve">
+    <value>Close Tab</value>
+  </data>
+  <data name="Gestures.Default.CreateNew" xml:space="preserve">
+    <value>Create New</value>
+  </data>
+  <data name="Gestures.Default.CreateNewTab" xml:space="preserve">
+    <value>Create New Tab</value>
+  </data>
+  <data name="Gestures.Default.Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Gestures.Default.Forward" xml:space="preserve">
+    <value>Forward</value>
+  </data>
+  <data name="Gestures.Default.RefreshPage" xml:space="preserve">
+    <value>Refresh Page</value>
+  </data>
+  <data name="Gestures.Default.CloseOtherTabs" xml:space="preserve">
+    <value>Close Other Tabs</value>
+  </data>
+  <data name="Gestures.Default.FullScreen" xml:space="preserve">
+    <value>Full Screen Switch</value>
+  </data>
+  <data name="Gestures.Capture.MouseLeft" xml:space="preserve">
+    <value>Left button</value>
+  </data>
+  <data name="Gestures.Capture.MouseRight" xml:space="preserve">
+    <value>Right button</value>
+  </data>
+  <data name="Gestures.Capture.MouseMiddle" xml:space="preserve">
+    <value>Middle button</value>
+  </data>
+  <data name="Gestures.Capture.MouseBack" xml:space="preserve">
+    <value>Back button</value>
+  </data>
+  <data name="Gestures.Capture.MouseForward" xml:space="preserve">
+    <value>Forward button</value>
+  </data>
+</root>

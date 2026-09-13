@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="MyGestures.Test/MyGestures.Test.csproj" />
+  <Project Path="MyGestures/MyGestures.csproj" />
+</Solution>
