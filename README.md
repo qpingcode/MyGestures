@@ -13,7 +13,7 @@ MyGestures is a standalone Windows mouse-gesture application extracted from MyTo
 - Edit gesture names, directions, target processes, keyboard shortcuts, mouse actions, and whether each item is enabled.
 - An empty target process makes a gesture global. A process-specific gesture takes priority over the global one.
 - Recording a gesture or action pauses detection until you finish.
-- Settings save automatically. Use the save button to write immediately or retry a failed save.
+- Settings save automatically.
 
 ## System Requirements
 

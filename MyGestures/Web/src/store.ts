@@ -19,6 +19,8 @@ export const store = reactive({
 });
 let revision = 0;
 const SaveDebounceMilliseconds = 300;
+const MaxSaveFailureRetries = 1;
+let saveFailureRetries = 0;
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 function scheduleSave(): void {
     clearTimeout(saveTimer);
@@ -57,8 +59,15 @@ export async function saveSettings(): Promise<void> {
     try {
         const result = await bus.call<GestureSettings>(Methods.Save, payload);
         succeeded = true;
+        saveFailureRetries = 0;
         if (revision === savedRevision) { store.gestureConfigs = result.gestures; store.dirty = false; }
-    } catch (error) { store.error = String(error instanceof Error ? error.message : error); }
+    } catch (error) {
+        store.error = String(error instanceof Error ? error.message : error);
+        if (saveFailureRetries < MaxSaveFailureRetries) {
+            saveFailureRetries++;
+            scheduleSave();
+        }
+    }
     finally {
         store.saving = false;
         if (succeeded && store.dirty) scheduleSave();

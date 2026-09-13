@@ -64,12 +64,6 @@
       "placeholders": []
     },
     {
-      "defaultValue": "Save",
-      "references": [],
-      "key": "Gestures.Web.Save",
-      "placeholders": []
-    },
-    {
       "defaultValue": "General",
       "references": [],
       "key": "Gestures.Web.TabGeneral",

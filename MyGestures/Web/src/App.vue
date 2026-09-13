@@ -4,7 +4,7 @@ import { darkTheme, enUS, zhCN, frFR } from "naive-ui";
 import GeneralPanel from "./panels/GeneralPanel.vue";
 import GesturesPanel from "./panels/GesturesPanel.vue";
 import { locale, setLocale, t } from "./i18n";
-import { store, loadSettings, markGesturesDirty, saveSettings } from "./store";
+import { store, loadSettings, markGesturesDirty } from "./store";
 import { isDarkTheme } from "./theme";
 
 const TabGeneral = "general";
@@ -37,7 +37,6 @@ onMounted(loadSettings);
                     <h1>MyGestures</h1>
                     <p>{{ t("Gestures.Web.Description", "Hold the right mouse button and draw, then release to run the assigned action. Closing this window keeps gestures running in the system tray.") }}</p>
                 </div>
-                <n-button :disabled="!store.dirty || store.capturing || store.loading" :loading="store.saving" @click="saveSettings">{{ t("Gestures.Web.Save", "Save") }}</n-button>
             </header>
             <nav class="tabs" role="tablist">
                 <button
@@ -100,7 +99,7 @@ html[data-theme="light"] {
 }
 body { margin: 0; background: var(--mt-bg, #141414); color: var(--mt-text, #f3f1ec); font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif; }
 main { box-sizing: border-box; min-height: 100vh; padding: 28px 32px 40px; }
-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
+header { margin-bottom: 22px; }
 .brand { min-width: 0; }
 h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.03em; }
 header p { margin: 8px 0 0; max-width: 640px; color: var(--mt-text-secondary, #b3aea4); line-height: 1.6; font-size: 13px; }
@@ -111,5 +110,5 @@ header p { margin: 8px 0 0; max-width: 640px; color: var(--mt-text-secondary, #b
 html[data-theme="light"] .error { color: #9b1c1c; }
 mark { color: inherit; background: #705e20; }
 html[data-theme="light"] mark { background: #e8d394; }
-header .n-select, [data-setting="language"] .n-select { width: 168px; }
+[data-setting="language"] .n-select { width: 168px; }
 </style>
