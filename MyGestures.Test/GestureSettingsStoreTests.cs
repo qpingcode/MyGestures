@@ -41,10 +41,29 @@ public sealed class GestureSettingsStoreTests
         Assert.Multiple(() =>
         {
             Assert.That(store.Current.Enabled, Is.True);
+            Assert.That(store.Current.GameMode, Is.True);
+            Assert.That(store.Current.AutoStart, Is.False);
+            Assert.That(store.Current.Theme, Is.EqualTo("dark"));
             Assert.That(store.Current.Gestures.Single().Id, Is.EqualTo(gesture.Id));
             Assert.That(store.Current.Gestures.Single().ProcessNames, Is.EqualTo(new[] { "chrome" }));
             Assert.That(File.ReadAllText(gesturePath), Is.EqualTo(gestureJson));
             Assert.That(File.ReadAllText(settingsPath), Is.EqualTo(settingsJson));
+        });
+    }
+
+    [Test]
+    public void ExistingConfiguration_WithoutNewFields_UsesGeneralDefaults()
+    {
+        Directory.CreateDirectory(own);
+        File.WriteAllText(
+            Path.Combine(own, GestureSettingsStore.ConfigurationFileName),
+            """{"enabled":true,"locale":"en-US","gestures":[]}""");
+        var store = CreateStore();
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.Current.GameMode, Is.True);
+            Assert.That(store.Current.AutoStart, Is.False);
+            Assert.That(store.Current.Theme, Is.EqualTo("dark"));
         });
     }
 

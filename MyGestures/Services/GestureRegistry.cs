@@ -52,6 +52,12 @@ public class GestureRegistry : IDisposable
         };
     }
     
+    public bool SuppressWhenFullscreen
+    {
+        get => mouseGestureDetector.SuppressWhenFullscreen;
+        set => mouseGestureDetector.SuppressWhenFullscreen = value;
+    }
+
     public void EnableDetection(IEnumerable<GestureConfig> configs, MouseHelper mouseHelper)
     {
         lock (lifecycleLock)

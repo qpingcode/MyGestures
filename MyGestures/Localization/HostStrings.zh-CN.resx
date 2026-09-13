@@ -20,6 +20,9 @@
   <data name="Gestures.Error.Save" xml:space="preserve">
     <value>操作失败，请检查配置并重试。</value>
   </data>
+  <data name="Gestures.Error.AutoStart" xml:space="preserve">
+    <value>无法更改开机自启动。</value>
+  </data>
   <data name="Gestures.Trail.NoMatch" xml:space="preserve">
     <value>没有匹配的手势</value>
   </data>

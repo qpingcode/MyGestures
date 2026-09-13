@@ -12,7 +12,6 @@ namespace MyGestures;
 public partial class App : Application
 {
     private const string SingleInstanceMutexName = "Local\\MyGestures.Application";
-    private const string BackgroundStartArgument = "--background";
     private static readonly Uri ApplicationIconUri = new("pack://application:,,,/MyGestures;component/Assets/mygestures.ico");
     private Mutex? instanceMutex;
     private bool ownsMutex;
@@ -30,10 +29,12 @@ public partial class App : Application
         try
         {
             var store = new GestureSettingsStore(localization);
+            var autoStart = new AutoStartService();
+            TryApplyAutoStart(autoStart, store.Current.AutoStart);
             var mouse = new MouseHelper();
             var detector = new MouseGestureDetector(mouse, NullLogger<MouseGestureDetector>.Instance, NullLogger<MouseTrailWindow>.Instance, localization);
-            gestures = new GestureRegistry(NullLogger<GestureRegistry>.Instance, detector);
-            settingsWindow = new SettingsWindow(store, gestures, mouse, localization);
+            gestures = new GestureRegistry(NullLogger<GestureRegistry>.Instance, detector) { SuppressWhenFullscreen = store.Current.GameMode };
+            settingsWindow = new SettingsWindow(store, gestures, mouse, localization, autoStart);
             MainWindow = settingsWindow;
             if (store.Current.Enabled) gestures.EnableDetection(store.Current.Gestures, mouse);
             var iconResource = GetResourceStream(ApplicationIconUri) ?? throw new FileNotFoundException("Application icon resource is missing.");
@@ -46,7 +47,7 @@ public partial class App : Application
             tray.DoubleClick += (_, _) => ShowSettings();
             localization.LocaleChanged += (_, _) => UpdateTrayMenu();
             UpdateTrayMenu();
-            if (!e.Args.Contains(BackgroundStartArgument)) ShowSettings();
+            if (!e.Args.Contains(AutoStartService.BackgroundStartArgument)) ShowSettings();
         }
         catch (Exception exception)
         {
@@ -54,6 +55,12 @@ public partial class App : Application
             MessageBox.Show(localization.GetCaption("Gestures.Error.Startup", "MyGestures could not start. Check its configuration and WebView2 installation."), "MyGestures", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown();
         }
+    }
+
+    private static void TryApplyAutoStart(AutoStartService autoStart, bool enabled)
+    {
+        try { autoStart.Apply(enabled); }
+        catch (Exception exception) { System.Diagnostics.Trace.TraceWarning("Automatic startup could not be applied: {0}", exception); }
     }
 
     private void ShowSettings()

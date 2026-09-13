@@ -10,4 +10,11 @@ export type GestureConfig = {
     processNames: string[];
     isEnabled: boolean;
 };
-export type GestureSettings = { enabled: boolean; locale: string; gestures: GestureConfig[] };
+export type GestureSettings = {
+    enabled: boolean;
+    autoStart: boolean;
+    gameMode: boolean;
+    locale: string;
+    theme: string;
+    gestures: GestureConfig[];
+};

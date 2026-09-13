@@ -30,6 +30,8 @@ public class MouseGestureDetector : IDisposable
     private int captureGeneration;
     private readonly MouseHelper _mouseHelper;
     private readonly Func<Native.POINT, bool> _isTaskbarAt;
+    private readonly Func<bool> _isForegroundFullscreen;
+    public bool SuppressWhenFullscreen { get; set; } = true;
     private volatile bool _suspended;
     private int _isRunning;
     private bool _bypassRightButtonSequence;
@@ -59,7 +61,7 @@ public class MouseGestureDetector : IDisposable
     }
 
     public MouseGestureDetector(MouseHelper mouseHelper, ILogger<MouseGestureDetector> logger, ILogger<MouseTrailWindow> trailWindowLogger, LocalizationService? localization = null)
-        : this(mouseHelper, logger, trailWindowLogger, new MouseHook(logger), TaskbarWindowDetector.IsTaskbarAt, localization)
+        : this(mouseHelper, logger, trailWindowLogger, new MouseHook(logger), TaskbarWindowDetector.IsTaskbarAt, FullscreenWindowDetector.IsForegroundFullscreen, localization)
     {
     }
 
@@ -69,6 +71,7 @@ public class MouseGestureDetector : IDisposable
         ILogger<MouseTrailWindow> trailWindowLogger,
         IMouseHook mouseHook,
         Func<Native.POINT, bool>? isTaskbarAt = null,
+        Func<bool>? isForegroundFullscreen = null,
         LocalizationService? localization = null)
     {
         _logger = logger;
@@ -78,6 +81,7 @@ public class MouseGestureDetector : IDisposable
         _mouseHook.MouseHookEvent += OnMouseHookEvent;
         _mouseHelper = mouseHelper;
         _isTaskbarAt = isTaskbarAt ?? TaskbarWindowDetector.IsTaskbarAt;
+        _isForegroundFullscreen = isForegroundFullscreen ?? FullscreenWindowDetector.IsForegroundFullscreen;
         this.localization = localization ?? new LocalizationService();
         this.localization.LocaleChanged += OnLocaleChanged;
     }
@@ -98,7 +102,8 @@ public class MouseGestureDetector : IDisposable
         switch (message)
         {
             case Native.MouseMsg.WM_RBUTTONDOWN:
-                _bypassRightButtonSequence = _isTaskbarAt(e.ScreenPoint);
+                _bypassRightButtonSequence = _isTaskbarAt(e.ScreenPoint)
+                    || (SuppressWhenFullscreen && _isForegroundFullscreen());
                 if (_bypassRightButtonSequence)
                 {
                     return;

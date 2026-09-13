@@ -79,6 +79,8 @@ public sealed class GestureSettingsStore
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(settings.Gestures);
         ArgumentNullException.ThrowIfNull(settings.Locale);
+        ArgumentNullException.ThrowIfNull(settings.Theme);
+        settings.Theme = AppearanceTheme.Normalize(settings.Theme);
         if (!LocalizationService.SupportedLocales.Contains(settings.Locale))
         {
             // Normalize OS locales on first use; only supported locales are persisted.

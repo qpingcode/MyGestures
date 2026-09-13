@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Win32;
 using MyGestures.Localization;
 using MyGestures.Services;
 using MyGestures.Utils;
@@ -34,7 +35,8 @@ public sealed class WebSettingsIntegrationTests
         var mouse = new MouseHelper();
         using var detector = new MouseGestureDetector(mouse, NullLogger<MouseGestureDetector>.Instance, NullLogger<MouseTrailWindow>.Instance, localization);
         using var registry = new GestureRegistry(NullLogger<GestureRegistry>.Instance, detector);
-        var window = new SettingsWindow(store, registry, mouse, localization) { ShowInTaskbar = false, ShowActivated = false, Left = HiddenWindowCoordinate, Top = HiddenWindowCoordinate };
+        var autoStart = new AutoStartService(@"Software\MyGestures.Test\WebSettings", Guid.NewGuid().ToString("N"));
+        var window = new SettingsWindow(store, registry, mouse, localization, autoStart) { ShowInTaskbar = false, ShowActivated = false, Left = HiddenWindowCoordinate, Top = HiddenWindowCoordinate };
         try
         {
             RunWithDispatcher(async () =>
@@ -50,12 +52,16 @@ public sealed class WebSettingsIntegrationTests
                     TestContext.WriteLine(window.Browser.CoreWebView2 == null ? "WebView not initialized" : await window.Browser.ExecuteScriptAsync("({href:location.href,text:document.body.innerText})"));
                     throw;
                 }
+                await window.Browser.ExecuteScriptAsync("document.querySelector('[data-tab=\"gestures\"]').click();");
+                await WaitUntil(async () => await window.Browser.ExecuteScriptAsync("Boolean(document.querySelector('.col-name .flat-display'))") == "true", ResponseTimeout);
                 await window.Browser.ExecuteScriptAsync("document.querySelector('.col-name .flat-display').click();");
                 await WaitUntil(async () => await window.Browser.ExecuteScriptAsync("Boolean(document.querySelector('.col-name input'))") == "true", ResponseTimeout);
                 var serializedName = JsonSerializer.Serialize(EditedActionName);
                 await window.Browser.ExecuteScriptAsync($"(() => {{ const input = document.querySelector('.col-name input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, {serializedName}); input.dispatchEvent(new Event('input', {{ bubbles: true }})); }})();");
                 await WaitUntil(() => Task.FromResult(store.Current.Gestures[0].ActionName == EditedActionName), ResponseTimeout);
-                await window.Browser.ExecuteScriptAsync("document.querySelector('.n-base-selection').click();");
+                await window.Browser.ExecuteScriptAsync("document.querySelector('[data-tab=\"general\"]').click();");
+                await WaitUntil(async () => await window.Browser.ExecuteScriptAsync("Boolean(document.querySelector('[data-setting=\"language\"] .n-base-selection'))") == "true", ResponseTimeout);
+                await window.Browser.ExecuteScriptAsync("document.querySelector('[data-setting=\"language\"] .n-base-selection').click();");
                 await WaitUntil(async () => await window.Browser.ExecuteScriptAsync("Array.from(document.querySelectorAll('.n-base-select-option')).some(option => option.textContent.includes('Français'))") == "true", ResponseTimeout);
                 await window.Browser.ExecuteScriptAsync("Array.from(document.querySelectorAll('.n-base-select-option')).find(option => option.textContent.includes('Français')).click();");
                 await WaitUntil(async () => await window.Browser.ExecuteScriptAsync("document.body.textContent.includes('Activer les gestes')") == "true", ResponseTimeout);
@@ -79,6 +85,7 @@ public sealed class WebSettingsIntegrationTests
         {
             window.PrepareForExit();
             window.Close();
+            Registry.CurrentUser.DeleteSubKeyTree(@"Software\MyGestures.Test", throwOnMissingSubKey: false);
             Directory.Delete(root, recursive: true);
         }
     }

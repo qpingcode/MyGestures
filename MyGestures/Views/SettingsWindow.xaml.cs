@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Media;
 using Microsoft.Web.WebView2.Core;
 using MyGestures.Localization;
 using MyGestures.Models;
@@ -27,17 +28,20 @@ public partial class SettingsWindow : Window
     private readonly GestureRegistry gestures;
     private readonly MouseHelper mouse;
     private readonly LocalizationService localization;
+    private readonly AutoStartService autoStart;
     private bool exiting;
     private bool initialized;
     private bool recordingSuspended;
 
-    public SettingsWindow(GestureSettingsStore store, GestureRegistry gestures, MouseHelper mouse, LocalizationService localization)
+    public SettingsWindow(GestureSettingsStore store, GestureRegistry gestures, MouseHelper mouse, LocalizationService localization, AutoStartService? autoStart = null)
     {
         this.store = store;
         this.gestures = gestures;
         this.mouse = mouse;
         this.localization = localization;
+        this.autoStart = autoStart ?? new AutoStartService();
         InitializeComponent();
+        ApplyAppearance(store.Current.Theme);
         Loaded += OnLoaded;
         Closing += OnClosing;
         IsVisibleChanged += (_, _) => { if (!IsVisible) ResumeDetection(); };
@@ -90,10 +94,18 @@ public partial class SettingsWindow : Window
                     break;
                 case SaveSettingsMethod:
                     var settings = request.Payload.Deserialize<GestureSettings>(JsonOptions) ?? throw new InvalidDataException("Empty settings.");
+                    try { autoStart.Apply(settings.AutoStart); }
+                    catch (Exception exception)
+                    {
+                        System.Diagnostics.Trace.TraceError("Automatic startup could not be updated: {0}", exception);
+                        throw new InvalidOperationException(localization.GetCaption("Gestures.Error.AutoStart", "MyGestures could not change automatic startup."));
+                    }
                     store.Save(settings);
+                    gestures.SuppressWhenFullscreen = settings.GameMode;
                     if (settings.Enabled) gestures.EnableDetection(settings.Gestures, mouse);
                     else gestures.DisableDetection();
                     if (recordingSuspended) gestures.SuspendDetection();
+                    Dispatcher.Invoke(() => ApplyAppearance(settings.Theme));
                     result = store.Current;
                     break;
                 case SuspendGesturesMethod:
@@ -125,6 +137,12 @@ public partial class SettingsWindow : Window
             System.Diagnostics.Trace.TraceError("Settings request failed: {0}", exception);
             Browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { id, error = localization.GetCaption("Gestures.Error.Save", "The operation failed. Check your configuration and try again.") }, JsonOptions));
         }
+    }
+
+    private void ApplyAppearance(string theme)
+    {
+        var dark = AppearanceTheme.Normalize(theme) != AppearanceTheme.Light;
+        Background = new SolidColorBrush(dark ? Color.FromRgb(0x14, 0x14, 0x14) : Color.FromRgb(0xF6, 0xF3, 0xEE));
     }
 
     private void ResumeDetection()

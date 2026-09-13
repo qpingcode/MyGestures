@@ -4,6 +4,18 @@
   "sourceLocale": "en-US",
   "entries": [
     {
+      "defaultValue": "Start with Windows",
+      "references": [],
+      "key": "Gestures.Web.AutoStart",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Open MyGestures in the tray when you sign in.",
+      "references": [],
+      "key": "Gestures.Web.AutoStartDescription",
+      "placeholders": []
+    },
+    {
       "defaultValue": "Hold the right mouse button and draw, then release to run the assigned action. Closing this window keeps gestures running in the system tray.",
       "references": [],
       "key": "Gestures.Web.Description",
@@ -13,6 +25,24 @@
       "defaultValue": "Enable gestures",
       "references": [],
       "key": "Gestures.Web.Enable",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Listen for right-button gestures on this computer.",
+      "references": [],
+      "key": "Gestures.Web.EnableDescription",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Game mode",
+      "references": [],
+      "key": "Gestures.Web.GameMode",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Pause gestures while another app is fullscreen, so games and videos keep the right mouse button.",
+      "references": [],
+      "key": "Gestures.Web.GameModeDescription",
       "placeholders": []
     },
     {
@@ -28,9 +58,51 @@
       "placeholders": []
     },
     {
+      "defaultValue": "Language for the settings window and gesture trail.",
+      "references": [],
+      "key": "Gestures.Web.LanguageDescription",
+      "placeholders": []
+    },
+    {
       "defaultValue": "Save",
       "references": [],
       "key": "Gestures.Web.Save",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "General",
+      "references": [],
+      "key": "Gestures.Web.TabGeneral",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Gestures",
+      "references": [],
+      "key": "Gestures.Web.TabGestures",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Theme",
+      "references": [],
+      "key": "Gestures.Web.Theme",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Dark",
+      "references": [],
+      "key": "Gestures.Web.ThemeDark",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Choose a light or dark appearance.",
+      "references": [],
+      "key": "Gestures.Web.ThemeDescription",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Light",
+      "references": [],
+      "key": "Gestures.Web.ThemeLight",
       "placeholders": []
     },
     {

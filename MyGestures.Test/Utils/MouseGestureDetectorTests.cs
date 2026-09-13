@@ -48,6 +48,59 @@ public sealed class MouseGestureDetectorTests
     }
 
     [Test]
+    public void FullscreenRightClick_PassesThroughWhenGameModeIsOn()
+    {
+        var hook = new TestMouseHook();
+        using var detector = CreateDetector(new MouseHelper(), hook, _ => false, () => true);
+        detector.SuppressWhenFullscreen = true;
+        var listenerThread = Start(detector);
+        Assert.That(hook.WaitForStart(ListenerTestTimeout), Is.True);
+
+        var down = hook.Raise(Native.MouseMsg.WM_RBUTTONDOWN, new Native.POINT { x = 10, y = 20 });
+        var up = hook.Raise(Native.MouseMsg.WM_RBUTTONUP, new Native.POINT { x = 10, y = 20 });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(down.Handled, Is.False);
+            Assert.That(up.Handled, Is.False);
+        });
+
+        detector.Stop();
+        Assert.That(listenerThread.Join(ListenerTestTimeout), Is.True);
+    }
+
+    [Test]
+    public void FullscreenRightClick_IsCapturedWhenGameModeIsOff()
+    {
+        var hook = new TestMouseHook();
+        using var detector = CreateDetector(new MouseHelper(), hook, _ => false, () => true);
+        detector.SuppressWhenFullscreen = false;
+        var listenerThread = Start(detector);
+        Assert.That(hook.WaitForStart(ListenerTestTimeout), Is.True);
+
+        var down = hook.Raise(Native.MouseMsg.WM_RBUTTONDOWN, new Native.POINT { x = 10, y = 20 });
+        Assert.That(down.Handled, Is.True);
+
+        detector.Stop();
+        Assert.That(listenerThread.Join(ListenerTestTimeout), Is.True);
+    }
+
+    [Test]
+    public void FullscreenWindowDetector_TreatsMonitorCoverAsFullscreen()
+    {
+        var monitor = new Native.RECT { Left = 0, Top = 0, Right = 1920, Bottom = 1080 };
+        var fullscreen = new Native.RECT { Left = 0, Top = 0, Right = 1920, Bottom = 1080 };
+        var maximized = new Native.RECT { Left = 0, Top = 0, Right = 1920, Bottom = 1040 };
+        Assert.Multiple(() =>
+        {
+            Assert.That(FullscreenWindowDetector.CoversMonitor(fullscreen, monitor), Is.True);
+            Assert.That(FullscreenWindowDetector.CoversMonitor(maximized, monitor), Is.False);
+            Assert.That(FullscreenWindowDetector.IsDesktopShellClassName("Progman"), Is.True);
+            Assert.That(FullscreenWindowDetector.IsDesktopShellClassName("Chrome_WidgetWin_1"), Is.False);
+        });
+    }
+
+    [Test]
     public void Registry_EnableAndDisable_ControlsListenerLifetime()
     {
         var hook = new TestMouseHook();
@@ -100,13 +153,15 @@ public sealed class MouseGestureDetectorTests
     private static MouseGestureDetector CreateDetector(
         MouseHelper mouseHelper,
         IMouseHook hook,
-        Func<Native.POINT, bool>? isTaskbarAt = null)
+        Func<Native.POINT, bool>? isTaskbarAt = null,
+        Func<bool>? isForegroundFullscreen = null)
         => new(
             mouseHelper,
             NullLogger<MouseGestureDetector>.Instance,
             NullLogger<global::MyGestures.Views.MouseTrailWindow>.Instance,
             hook,
-            isTaskbarAt);
+            isTaskbarAt,
+            isForegroundFullscreen ?? (() => false));
 
     private static Thread Start(MouseGestureDetector detector)
     {

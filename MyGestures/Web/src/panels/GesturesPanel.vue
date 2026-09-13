@@ -301,18 +301,6 @@ onMounted(() => window.addEventListener("blur", cancelRecording));
 
 <template>
     <div>
-        <div class="enable-setting">
-            <div class="enable-heading">
-                <div class="enable-title">
-                    <HighlightText :text="t('Gestures.Web.Enable', 'Enable gestures')" :query="store.searchQuery" />
-                </div>
-                <n-switch
-                    :aria-label="t('Gestures.Web.Enable', 'Enable gestures')"
-                    :value="store.enabled"
-                    @update:value="store.enabled = !!$event"
-                />
-            </div>
-        </div>
         <TableToolbar
             v-model="tableQuery"
             :placeholder="t('Plugin.Settings.Table.Search', 'Search')"
@@ -475,27 +463,6 @@ onMounted(() => window.addEventListener("blur", cancelRecording));
 </template>
 
 <style scoped>
-.enable-setting {
-    padding: 18px 0;
-}
-
-.enable-heading {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.enable-title {
-    font-size: var(--mt-font-size-body, 14px);
-    font-weight: 600;
-    line-height: 1.35;
-    color: var(--mt-text, #fff);
-}
-
-.enable-description {
-    margin-top: 4px;
-}
-
 .empty {
     padding: 24px 0;
     text-align: center;

@@ -20,6 +20,9 @@
   <data name="Gestures.Error.Save" xml:space="preserve">
     <value>L’opération a échoué. Vérifiez votre configuration et réessayez.</value>
   </data>
+  <data name="Gestures.Error.AutoStart" xml:space="preserve">
+    <value>MyGestures n’a pas pu modifier le démarrage automatique.</value>
+  </data>
   <data name="Gestures.Trail.NoMatch" xml:space="preserve">
     <value>Aucun geste correspondant</value>
   </data>
