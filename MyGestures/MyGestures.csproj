@@ -7,11 +7,17 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationIcon>Assets/mygestures.ico</ApplicationIcon>
+    <StartupObject>MyGestures.Program</StartupObject>
+    <VersionFile>$(MSBuildProjectDirectory)/../version.txt</VersionFile>
+    <Version Condition="'$(Version)' == '' and Exists('$(VersionFile)')">$([System.IO.File]::ReadAllText('$(VersionFile)').Trim())</Version>
+    <Authors>qping</Authors>
+    <Description>MyGestures mouse gesture application</Description>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Microsoft.Web.WebView2" />
+    <PackageReference Include="Velopack" />
     <InternalsVisibleTo Include="MyGestures.Test" />
     <Resource Include="Assets/mygestures.ico" />
     <Content Include="Web/dist/**/*" Link="Web/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

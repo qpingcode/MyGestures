@@ -1,0 +1,195 @@
+name: Build and release
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'release-*'
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mygestures-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Test and publish lite/full
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Determine release channel
+        id: channel
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          if ($env:GITHUB_REF -like 'refs/tags/release-*') {
+              $tag = $env:GITHUB_REF_NAME
+              if ($tag -notmatch '^release-(?:\d{4}-\d{2}-\d{2}|\d{8})(?:-\d+)?$') {
+                  throw "Stable tags must look like release-2026-09-13 or release-20260913. Got: $tag"
+              }
+
+              "name=stable" >> $env:GITHUB_OUTPUT
+              "label=Stable" >> $env:GITHUB_OUTPUT
+              Write-Host "Channel: stable (tag $tag)"
+          } else {
+              "name=beta" >> $env:GITHUB_OUTPUT
+              "label=Beta" >> $env:GITHUB_OUTPUT
+              Write-Host "Channel: beta"
+          }
+
+      - name: Decide whether to publish
+        id: publish
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $publish = $false
+          if ($env:EVENT_NAME -eq 'push') {
+              if ($env:GITHUB_REF -like 'refs/tags/release-*') {
+                  $publish = $true
+              } elseif (
+                  $env:GITHUB_REF -in @('refs/heads/main', 'refs/heads/master') -and
+                  $env:ACTOR -ne 'github-actions[bot]' -and
+                  $env:COMMIT_MESSAGE -notlike '*[skip release]*'
+              ) {
+                  $publish = $true
+              }
+          }
+
+          "publish=$($publish.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          Write-Host "Publish: $publish"
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            Directory.Packages.props
+            .config/dotnet-tools.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: MyGestures/Web/package-lock.json
+
+      - name: Build Web settings
+        shell: pwsh
+        working-directory: .\MyGestures\Web
+        run: |
+          $ErrorActionPreference = "Stop"
+          npm ci
+          npm run build
+          if (-not (Test-Path -LiteralPath .\dist\index.html -PathType Leaf)) {
+              throw "Web settings build is missing: dist/index.html"
+          }
+
+      - name: Restore dependencies and tools
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          dotnet restore .\MyGestures\MyGestures.csproj
+          dotnet restore .\MyGestures.Test\MyGestures.Test.csproj
+          dotnet tool restore --tool-manifest .\.config\dotnet-tools.json
+
+      - name: Run automated tests
+        shell: pwsh
+        run: >-
+          dotnet test .\MyGestures.Test\MyGestures.Test.csproj
+          --configuration Release
+          --no-restore
+          --nologo
+
+      - name: Calculate next release version
+        if: steps.publish.outputs.publish == 'true'
+        id: version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_CHANNEL: ${{ steps.channel.outputs.name }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          git fetch origin --tags --force
+          $sourceTag = if ($env:RELEASE_CHANNEL -eq 'stable') { $env:GITHUB_REF_NAME } else { '' }
+          & .\build\Get-ReleaseVersion.ps1 `
+            -Channel $env:RELEASE_CHANNEL `
+            -Repository $env:GITHUB_REPOSITORY `
+            -SourceTag $sourceTag
+
+      - name: Publish Full and Lite packages
+        if: steps.publish.outputs.publish == 'true'
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_CHANNEL: ${{ steps.channel.outputs.name }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          foreach ($flavor in @('Full', 'Lite')) {
+              & .\build\Publish-Release.ps1 `
+                -Flavor $flavor `
+                -Version $env:RELEASE_VERSION `
+                -Channel $env:RELEASE_CHANNEL `
+                -SkipWebBuild
+          }
+
+      - name: Create GitHub release
+        if: steps.publish.outputs.publish == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_CHANNEL: ${{ steps.channel.outputs.name }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          & .\build\New-GitHubRelease.ps1 `
+            -Version $env:RELEASE_VERSION `
+            -Tag $env:RELEASE_TAG `
+            -Channel $env:RELEASE_CHANNEL `
+            -Repository $env:GITHUB_REPOSITORY `
+            -Sha $env:GITHUB_SHA
+
+      - name: Update README download matrix
+        if: steps.publish.outputs.publish == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $branch = if ([string]::IsNullOrWhiteSpace($env:DEFAULT_BRANCH)) { 'main' } else { $env:DEFAULT_BRANCH }
+          git fetch origin $branch
+          git checkout --force -B $branch "origin/$branch"
+          & .\build\Update-ReadmeDownloads.ps1 -Repository $env:GITHUB_REPOSITORY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md README.zh-CN.md
+          $changedFiles = @(git diff --cached --name-only -- README.md README.zh-CN.md)
+          if ($changedFiles.Count -eq 0) {
+              Write-Host 'README download matrix is already up to date.'
+              exit 0
+          }
+
+          git commit -m "docs: update download links [skip release]"
+          git push origin $branch

@@ -1,36 +1,74 @@
 # MyGestures
 
-独立运行的 Windows 鼠标手势应用，从 MyTools 抽离。无需启动 MyTools，也无需 Node.js 运行时。
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-## 构建与运行
+[![Build and release](https://github.com/qpingcode/MyGestures/actions/workflows/release.yml/badge.svg)](https://github.com/qpingcode/MyGestures/actions/workflows/release.yml)
 
-需要 .NET SDK 和用于构建前端的 Node.js/npm。运行时需要 Windows 与 WebView2 Runtime。
+MyGestures is a standalone Windows mouse-gesture application extracted from MyTools. It does not require MyTools or a Node.js runtime.
+
+## Features
+
+- Hold the right mouse button and draw a gesture to run the assigned action.
+- Continue running from the system tray after the settings window is closed. Double-click the tray icon to reopen settings, or exit from the tray menu. `--background` starts in the tray only.
+- Edit gesture names, directions, target processes, keyboard shortcuts, mouse actions, and whether each item is enabled.
+- An empty target process makes a gesture global. A process-specific gesture takes priority over the global one.
+- Recording a gesture or action pauses detection until you finish.
+- Settings save automatically. Use the save button to write immediately or retry a failed save.
+
+## System Requirements
+
+- Windows 10 or Windows 11, x64.
+- WebView2 Runtime, which is usually already installed.
+- The Full release is self-contained and does not require a separate .NET Desktop Runtime.
+- The Lite release requires the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0).
+- Building from source requires the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) and Node.js/npm.
+
+## Installation
+
+MyGestures is published as a Full build (bundled .NET runtime) and a Lite build (requires .NET 8 Desktop Runtime). Each build stays on its own update track.
+
+<!-- mygestures-downloads:start -->
+| Type | Channel | Version | Installer | Portable |
+| --- | --- | --- | --- | --- |
+| **Full** | **Stable** | — | Not published yet | Not published yet |
+| **Lite** | **Stable** | — | Not published yet | Not published yet |
+| **Full** | **Beta** | — | Not published yet | Not published yet |
+| **Lite** | **Beta** | — | Not published yet | Not published yet |
+<!-- mygestures-downloads:end -->
+
+Stable is the recommended channel. Push a git tag named `release-YYYY-MM-DD` (for example `release-2026-09-13`) to publish a stable build. Every push to `main` publishes a beta.
+
+A portable package can be extracted and run as `MyGestures.exe`.
+
+> Authenticode signing is not yet enabled. Windows SmartScreen may display an unknown publisher warning, so download MyGestures only from this repository's Releases page.
+
+## Build from source
 
 ```powershell
-cd D:\repos\MyGestures\MyGestures\Web
+cd MyGestures/Web
 npm ci
 npm run build
-cd D:\repos\MyGestures
+cd ../..
 dotnet build MyGestures/MyGestures.csproj -p:OutputPath=bin/AgentVerification/
 dotnet test MyGestures.Test/MyGestures.Test.csproj -p:OutputPath=bin/AgentVerification/
-& ./MyGestures/bin/AgentVerification/MyGestures.exe
+./MyGestures/bin/AgentVerification/MyGestures.exe
 ```
 
-启动时显示设置页。关闭设置窗口后继续在托盘运行，双击托盘图标重新打开设置，从托盘菜单退出。`--background` 可仅启动托盘，不显示设置。
+## Architecture
 
-设置修改后自动保存，也可点击保存按钮立即保存或重试失败的操作。可编辑手势名称、方向、目标进程、键盘快捷键或鼠标动作，以及各项启用状态。目标进程为空时全局生效；同一手势的进程专属配置优先。录制手势或动作时暂时暂停检测。
+- `MyGestures`: WPF host, Windows mouse hook, gesture recognition, input simulation, trail overlay, tray icon, and local configuration.
+- `MyGestures/Web`: Vue settings page. The build output ships with the app and is loaded by WebView2 from local files.
+- The web page talks to in-process .NET services through `chrome.webview.postMessage`. There is no Node backend, plugin bus, local port, or MyTools IPC forwarding.
+- Native strings use RESX. Web strings use JSON/i18next. Both support English, Simplified Chinese, and French.
 
-## 架构
+## Configuration migration
 
-- `MyGestures`：WPF 应用、Windows 鼠标钩子、手势识别、输入模拟、轨迹提示、托盘与本地配置。
-- `MyGestures/Web`：Vue 设置页。构建结果随应用发布，WebView2 加载本地资源。
-- Web 页通过一个 `chrome.webview.postMessage` 桥直接访问同进程 .NET 服务。没有 Node 后端、插件总线、端口监听或 MyTools IPC 转发。
-- 原生文案使用 RESX；Web 文案使用 JSON/i18next。两者均支持英语、简体中文与法语。
+Configuration is stored at `%AppData%/MyGestures/Configuration.json`. On first run, MyGestures reads gesture enablement from `%AppData%/MyTools.Desktop/Gestures.json` and `Settings.json` without modifying those files. After that it only reads its own configuration. A damaged file is reported as an error and is not overwritten.
 
-## 配置迁移
+MyTools search, plugin, and account settings stay in MyTools. MyGestures currently uses local configuration and does not sync through a MyTools account. Default action names are written in the language used when they are first created, then stored as editable user data.
 
-配置独立保存在 `%AppData%/MyGestures/Configuration.json`。首次运行时读取 `%AppData%/MyTools.Desktop/Gestures.json` 和 `Settings.json` 中的手势启用状态，不修改旧文件。后续只读取自己的配置；已有文件损坏时报告错误，不覆盖用户数据。
+An already-running older MyTools process may still use the previous gesture implementation. Restart MyTools after updating so the split version takes effect.
 
-MyTools 的搜索、插件与账号设置保留。MyGestures 当前使用本地配置，未接入 MyTools 的账号同步。默认动作名称以首次创建时的语言写入，之后作为可编辑的用户数据保存。
+## Contributing
 
-MyTools 的正在运行的旧进程仍可能启用旧手势逻辑，更新后重新启动 MyTools 即可使用拆分后的版本。
+Issues and pull requests are welcome. Before submitting a change, make sure the solution builds successfully and run the tests relevant to your changes.
