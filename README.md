@@ -32,9 +32,10 @@ MyGestures is published as a Full build (bundled .NET runtime) and a Lite build 
 | --- | --- | --- | --- | --- |
 | **Full** | **Stable** | — | Not published yet | Not published yet |
 | **Lite** | **Stable** | — | Not published yet | Not published yet |
-| **Full** | **Beta** | 0.0.5 | [Download](https://github.com/qpingcode/MyGestures/releases/download/v0.0.5/MyGestures-0.0.5-windows-x64-full-setup.exe) | [Download](https://github.com/qpingcode/MyGestures/releases/download/v0.0.5/MyGestures-0.0.5-windows-x64-full-portable.zip) |
-| **Lite** | **Beta** | 0.0.5 | [Download](https://github.com/qpingcode/MyGestures/releases/download/v0.0.5/MyGestures-0.0.5-windows-x64-lite-setup.exe) | [Download](https://github.com/qpingcode/MyGestures/releases/download/v0.0.5/MyGestures-0.0.5-windows-x64-lite-portable.zip) |
+| **Full** | **Beta** | 0.0.6 | [Download](https://github.com/qpingcode/MyGestures/releases/download/v0.0.6/MyGestures-0.0.6-windows-x64-full-setup.exe) | [Download](https://github.com/qpingcode/MyGestures/releases/download/v0.0.6/MyGestures-0.0.6-windows-x64-full-portable.zip) |
+| **Lite** | **Beta** | 0.0.6 | [Download](https://github.com/qpingcode/MyGestures/releases/download/v0.0.6/MyGestures-0.0.6-windows-x64-lite-setup.exe) | [Download](https://github.com/qpingcode/MyGestures/releases/download/v0.0.6/MyGestures-0.0.6-windows-x64-lite-portable.zip) |
 <!-- mygestures-downloads:end -->
+
 
 
 
