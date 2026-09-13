@@ -26,6 +26,7 @@ public partial class SettingsWindow : Window
     private const string SuspendGesturesMethod = "suspendGestures";
     private const string ResumeGesturesMethod = "resumeGestures";
     private const string CaptureActionMethod = "captureInputAction";
+    internal const string RecordTriggerMethod = "recordTriggerGesture";
     private const string UpdateProgressEvent = "updateProgress";
     private const string CheckUpdatesEvent = "checkUpdates";
     private const string WebViewDataDirectoryName = "WebView2";
@@ -39,6 +40,7 @@ public partial class SettingsWindow : Window
     private bool exiting;
     private bool initialized;
     private bool recordingSuspended;
+    private bool hidingForTriggerCapture;
 
     public SettingsWindow(GestureSettingsStore store, GestureRegistry gestures, MouseHelper mouse, LocalizationService localization, AutoStartService? autoStart = null, UpdateService? updates = null)
     {
@@ -52,7 +54,7 @@ public partial class SettingsWindow : Window
         ApplyAppearance(store.Current.Theme);
         Loaded += OnLoaded;
         Closing += OnClosing;
-        IsVisibleChanged += (_, _) => { if (!IsVisible) ResumeDetection(); };
+        IsVisibleChanged += (_, _) => { if (!IsVisible && !hidingForTriggerCapture) ResumeDetection(); };
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
@@ -166,6 +168,8 @@ public partial class SettingsWindow : Window
                     return capture.ShowDialog() == true ? capture.Result : null;
                 }
                 finally { if (!wasSuspended) ResumeDetection(); }
+            case RecordTriggerMethod:
+                return await RecordTriggerGestureAsync();
             default:
                 throw new NotSupportedException("Unknown settings method.");
         }
@@ -182,6 +186,46 @@ public partial class SettingsWindow : Window
     {
         var dark = AppearanceTheme.Normalize(theme) != AppearanceTheme.Light;
         Background = new SolidColorBrush(dark ? Color.FromRgb(0x14, 0x14, 0x14) : Color.FromRgb(0xF6, 0xF3, 0xEE));
+    }
+
+    private async Task<object?> RecordTriggerGestureAsync()
+    {
+        hidingForTriggerCapture = true;
+        GestureRecordHintWindow? hint = null;
+        using var cancellation = new CancellationTokenSource();
+        void OnTargetSelected(string? processName) => Dispatcher.BeginInvoke(() => hint?.SetSelectedProcess(processName));
+        void OnGestureChanged(string directions) => Dispatcher.BeginInvoke(() => hint?.SetLiveGesture(directions));
+        void OnCancelled() => cancellation.Cancel();
+        gestures.TriggerTargetChanged += OnTargetSelected;
+        gestures.TriggerGestureChanged += OnGestureChanged;
+        try
+        {
+            await Dispatcher.InvokeAsync(() =>
+            {
+                Hide();
+                hint = new GestureRecordHintWindow(localization, store.Current.Theme);
+                hint.Cancelled += OnCancelled;
+                hint.Show();
+            });
+            return await gestures.CaptureTriggerAsync(cancellation.Token);
+        }
+        finally
+        {
+            gestures.TriggerTargetChanged -= OnTargetSelected;
+            gestures.TriggerGestureChanged -= OnGestureChanged;
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (hint != null)
+                {
+                    hint.Cancelled -= OnCancelled;
+                    hint.Close();
+                }
+                Show();
+                WindowState = WindowState.Normal;
+                Activate();
+            });
+            hidingForTriggerCapture = false;
+        }
     }
 
     private void ResumeDetection()

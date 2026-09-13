@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Threading.Tasks;
 using System.Windows;
 using Microsoft.Extensions.Logging;
+using MyGestures.Models;
 using MyGestures.Views;
 using MyGestures.Localization;
 
@@ -26,7 +28,11 @@ public class MouseGestureDetector : IDisposable
     
     private Point _startPoint;
     private const int InitialValidMove = 5;
+    private const uint AncestorRoot = Native.AncestorRoot;
     private volatile bool _initialMoveValid;
+    private TaskCompletionSource<GestureCaptureResult?>? triggerCapture;
+    private string? selectedTriggerProcessName;
+    private readonly Func<Native.POINT, string?>? resolveProcessName;
     private int captureGeneration;
     private readonly MouseHelper _mouseHelper;
     private readonly Func<Native.POINT, bool> _isTaskbarAt;
@@ -39,8 +45,11 @@ public class MouseGestureDetector : IDisposable
     private Func<string?, MoveDirection[]?, int, List<PossibleGesture>>? _getPossibleGestures;
 
     public event EventHandler<MouseGestureEventArgs>? GestureDetected;
+    public event Action<string?>? TriggerTargetChanged;
+    public event Action<string>? TriggerGestureChanged;
 
     internal bool IsRunning => Volatile.Read(ref _isRunning) != 0;
+    internal bool IsTriggerCaptureActive => Volatile.Read(ref triggerCapture) != null;
 
     /// <summary>
     /// 设置查找 actionName 的方法
@@ -72,7 +81,8 @@ public class MouseGestureDetector : IDisposable
         IMouseHook mouseHook,
         Func<Native.POINT, bool>? isTaskbarAt = null,
         Func<bool>? isForegroundFullscreen = null,
-        LocalizationService? localization = null)
+        LocalizationService? localization = null,
+        Func<Native.POINT, string?>? resolveProcessName = null)
     {
         _logger = logger;
         _trailWindowLogger = trailWindowLogger;
@@ -84,6 +94,30 @@ public class MouseGestureDetector : IDisposable
         _isForegroundFullscreen = isForegroundFullscreen ?? FullscreenWindowDetector.IsForegroundFullscreen;
         this.localization = localization ?? new LocalizationService();
         this.localization.LocaleChanged += OnLocaleChanged;
+        this.resolveProcessName = resolveProcessName;
+    }
+
+    public Task<GestureCaptureResult?> CaptureTriggerAsync(CancellationToken cancellationToken)
+    {
+        var completion = new TaskCompletionSource<GestureCaptureResult?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var previous = Interlocked.Exchange(ref triggerCapture, completion);
+        previous?.TrySetResult(null);
+        selectedTriggerProcessName = null;
+        Resume();
+        if (cancellationToken.CanBeCanceled)
+        {
+            cancellationToken.Register(() =>
+            {
+                if (Interlocked.CompareExchange(ref triggerCapture, null, completion) == completion)
+                {
+                    CancelCapture();
+                    selectedTriggerProcessName = null;
+                    completion.TrySetResult(null);
+                }
+            });
+        }
+
+        return completion.Task;
     }
 
     private void OnMouseHookEvent(MouseHook.MouseHookEventArgs e)
@@ -101,9 +135,12 @@ public class MouseGestureDetector : IDisposable
         var message = e.Msg;
         switch (message)
         {
+            case Native.MouseMsg.WM_LBUTTONUP:
+                if (IsTriggerCaptureActive) RememberTriggerProcess(e.ScreenPoint);
+                return;
             case Native.MouseMsg.WM_RBUTTONDOWN:
                 _bypassRightButtonSequence = _isTaskbarAt(e.ScreenPoint)
-                    || (SuppressWhenFullscreen && _isForegroundFullscreen());
+                    || (!IsTriggerCaptureActive && SuppressWhenFullscreen && _isForegroundFullscreen());
                 if (_bypassRightButtonSequence)
                 {
                     return;
@@ -212,7 +249,9 @@ public class MouseGestureDetector : IDisposable
                 // Rendering and gesture state belong to the WPF dispatcher. Queue work
                 // without blocking the listener, so disabling detection cannot deadlock
                 // while the UI thread waits for the listener to exit.
-                _ = Application.Current.Dispatcher.BeginInvoke(() => HandleInput(message));
+                var dispatcher = Application.Current?.Dispatcher;
+                if (dispatcher == null) HandleInput(message);
+                else _ = dispatcher.BeginInvoke(() => HandleInput(message));
             }
         }
         catch (Exception exception)
@@ -264,6 +303,7 @@ public class MouseGestureDetector : IDisposable
         _suspended = true;
         Interlocked.Increment(ref captureGeneration);
         CancelCapture();
+        CompleteTriggerCapture(null);
 
         if (Volatile.Read(ref _isRunning) == 0)
         {
@@ -306,28 +346,90 @@ public class MouseGestureDetector : IDisposable
         ResetInvalidMove();
         _gestureDirectionStorage.Reset();
 
-        _previousProcessName = GetProcessName();
+        if (IsTriggerCaptureActive)
+        {
+            if (string.IsNullOrEmpty(selectedTriggerProcessName))
+            {
+                selectedTriggerProcessName = ResolveProcessName(ToNativePoint(_point));
+                TriggerTargetChanged?.Invoke(selectedTriggerProcessName);
+            }
+
+            _previousProcessName = selectedTriggerProcessName;
+        }
+        else
+        {
+            _previousProcessName = ResolveProcessName(ToNativePoint(_point));
+        }
+
         _trailViewModel = new MouseTrailViewModel();
-        _trailViewModel.ProcessName = _previousProcessName;
+        _trailViewModel.ProcessName = _previousProcessName ?? "";
+        _trailViewModel.AddPoint(_point);
         
         // 初始状态：显示前5个可能的手势
         UpdatePossibleGestures();
         
-        Application.Current.Dispatcher.Invoke(() =>
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+        dispatcher.Invoke(() =>
         {
             _trailWindow = new MouseTrailWindow(_trailWindowLogger, _trailViewModel);
+            _trailWindow.ShowActivated = false;
             _trailWindow.Show();
+            _trailWindow.Topmost = false;
+            _trailWindow.Topmost = true;
+            _trailWindow.UpdateDrawing();
         });
 
     }
 
-    private string GetProcessName()
+    private void RememberTriggerProcess(Native.POINT point)
     {
-        var previousFocusHwd = Native.GetForegroundWindow();
-        Native.GetWindowThreadProcessId(previousFocusHwd, out uint processId);
-        var process = Process.GetProcessById((int)processId);
-        return process.ProcessName;
+        var processName = ResolveProcessName(point);
+        if (string.IsNullOrEmpty(processName)) return;
+        selectedTriggerProcessName = processName;
+        TriggerTargetChanged?.Invoke(processName);
     }
+
+    private string? ResolveProcessName(Native.POINT point)
+    {
+        if (resolveProcessName != null) return NormalizeProcessName(resolveProcessName(point));
+        try
+        {
+            var fromPoint = ProcessNameFromWindow(Native.WindowFromPoint(point));
+            if (IsUsableTargetProcess(fromPoint)) return fromPoint;
+            var fromFocus = ProcessNameFromWindow(Native.GetForegroundWindow());
+            if (IsUsableTargetProcess(fromFocus)) return fromFocus;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogDebug(exception, "Could not resolve the target process.");
+        }
+
+        return null;
+    }
+
+    private static string? ProcessNameFromWindow(IntPtr window)
+    {
+        if (window == IntPtr.Zero) return null;
+        var root = Native.GetAncestor(window, AncestorRoot);
+        if (root != IntPtr.Zero) window = root;
+        Native.GetWindowThreadProcessId(window, out var processId);
+        if (processId == 0) return null;
+        using var process = Process.GetProcessById((int)processId);
+        return NormalizeProcessName(process.ProcessName);
+    }
+
+    private static string? NormalizeProcessName(string? processName)
+        => string.IsNullOrWhiteSpace(processName) ? null : processName.Trim().ToLowerInvariant();
+
+    private static bool IsUsableTargetProcess(string? processName)
+    {
+        if (string.IsNullOrEmpty(processName)) return false;
+        using var current = Process.GetCurrentProcess();
+        return !processName.Equals(current.ProcessName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static Native.POINT ToNativePoint(Point point) => new() { x = (int)point.X, y = (int)point.Y };
 
     void ResetInvalidMove()
     {
@@ -353,9 +455,12 @@ public class MouseGestureDetector : IDisposable
             
             // 更新可能的手势列表
             UpdatePossibleGestures();
+            if (IsTriggerCaptureActive)
+                TriggerGestureChanged?.Invoke(_gestureDirectionStorage.DirectionsToDisplay);
         }
        
-        Application.Current.Dispatcher.Invoke(() =>
+        var dispatcher = Application.Current?.Dispatcher;
+        dispatcher?.Invoke(() =>
         {
             _trailWindow?.UpdateDrawing();
         });
@@ -389,11 +494,7 @@ public class MouseGestureDetector : IDisposable
         {
            // _logger.LogDebug("Mouse Right Click Up ( Invalid Move, Simulating Right Click )");
             _mouseHelper.RightClick(_point);
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                _trailWindow?.Close();
-                _trailViewModel = null;
-            });
+            CloseTrailWindow();
             return;
         }
         else
@@ -402,11 +503,7 @@ public class MouseGestureDetector : IDisposable
            // _logger.LogDebug("Mouse Right Click Up");
         }
         
-        Application.Current.Dispatcher.Invoke(() =>
-        {
-            _trailWindow?.Close();
-            _trailViewModel = null;
-        });
+        CloseTrailWindow();
         
         try
         {
@@ -418,11 +515,47 @@ public class MouseGestureDetector : IDisposable
         }
 
         var directions = _gestureDirectionStorage.Directions;
+        if (IsTriggerCaptureActive)
+        {
+            if (directions.Length == 0) return;
+            CompleteTriggerCapture(new GestureCaptureResult
+            {
+                Directions = directions.Select(direction => direction.ToString()).ToArray(),
+                ProcessName = NormalizeProcessName(_previousProcessName),
+            });
+            _gestureDirectionStorage.Reset();
+            return;
+        }
+
         GestureDetected?.Invoke(
             this,
             new MouseGestureEventArgs(_previousProcessName, _point, directions, null));
 
         _gestureDirectionStorage.Reset();
+    }
+
+    private void CompleteTriggerCapture(GestureCaptureResult? result)
+    {
+        var completion = Interlocked.Exchange(ref triggerCapture, null);
+        selectedTriggerProcessName = null;
+        completion?.TrySetResult(result);
+    }
+
+    private void CloseTrailWindow()
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher == null)
+        {
+            _trailWindow = null;
+            _trailViewModel = null;
+            return;
+        }
+
+        dispatcher.Invoke(() =>
+        {
+            _trailWindow?.Close();
+            _trailViewModel = null;
+        });
     }
     
     private void Post(GestureMessage msg, Point point)
@@ -451,7 +584,7 @@ public class MouseGestureDetector : IDisposable
 
     private void UpdatePossibleGestures()
     {
-        if (_trailViewModel == null) return;
+        if (_trailViewModel == null || IsTriggerCaptureActive) return;
 
         var currentDirections = _gestureDirectionStorage.Directions;
         

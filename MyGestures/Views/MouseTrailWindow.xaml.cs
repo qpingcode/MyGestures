@@ -34,6 +34,8 @@ public partial class MouseTrailWindow
     private Polyline? _trailBorder;
     private TextBlock? _processNameTextBlock;
     private Border? _processNameBorder;
+    private TextBlock? _directionsTextBlock;
+    private Border? _directionsBorder;
     private StackPanel? _possibleGesturesPanel;
     private Border? _possibleGesturesBorder;
     private TextBlock? _noMatchTextBlock;
@@ -99,6 +101,28 @@ public partial class MouseTrailWindow
 
         TrailCanvas.Children.Add(_processNameBorder);
 
+        _directionsTextBlock = new TextBlock()
+        {
+            Text = string.Empty,
+            Foreground = Brushes.White,
+            FontFamily = UiFontFamily,
+            FontSize = 48,
+            FontWeight = FontWeights.SemiBold,
+            Background = Brushes.Transparent,
+            Padding = new Thickness(8, 4, 8, 4),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            TextAlignment = TextAlignment.Center,
+        };
+        _directionsBorder = new Border
+        {
+            Padding = new Thickness(12, 6, 12, 6),
+            Child = _directionsTextBlock,
+            Background = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0)),
+            MinWidth = 200,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        TrailCanvas.Children.Add(_directionsBorder);
+
         _possibleGesturesPanel = new StackPanel
         {
             Orientation = Orientation.Vertical,
@@ -143,28 +167,32 @@ public partial class MouseTrailWindow
         TrailCanvas.Children.Add(_noMatchBorder);
 
         // Get the DPI scale and screen bounds
-        SourceInitialized += (_, _) =>
-        {
-            var source = PresentationSource.FromVisual(this);
-            if (source?.CompositionTarget == null) return;
-            _dpiScale = source.CompositionTarget.TransformToDevice.M11;
-            var screen = Screen.FromHandle(new WindowInteropHelper(this).Handle);
-            var screenBounds = screen.Bounds;
-            _logger.LogDebug("Screen bounds: Left {Left}, Top {Top}, Width {Width}, Height {Height}",
-                screenBounds.Left, screenBounds.Top, screenBounds.Width, screenBounds.Height);
+        SourceInitialized += (_, _) => TryInitializeScreenMetrics();
+    }
 
-            Left = screenBounds.Left / _dpiScale;
-            Top = screenBounds.Top / _dpiScale;
-            Width = screenBounds.Width / _dpiScale;
-            Height = screenBounds.Height / _dpiScale;
+    private void TryInitializeScreenMetrics()
+    {
+        if (_dpiScale >= 0) return;
+        var source = PresentationSource.FromVisual(this);
+        if (source?.CompositionTarget == null) return;
+        _dpiScale = source.CompositionTarget.TransformToDevice.M11;
+        var screen = Screen.FromHandle(new WindowInteropHelper(this).Handle);
+        var screenBounds = screen.Bounds;
+        _logger.LogDebug("Screen bounds: Left {Left}, Top {Top}, Width {Width}, Height {Height}",
+            screenBounds.Left, screenBounds.Top, screenBounds.Width, screenBounds.Height);
 
-            _originalLeft = screenBounds.Left;
-            _originalTop = screenBounds.Top;
-        };
+        Left = screenBounds.Left / _dpiScale;
+        Top = screenBounds.Top / _dpiScale;
+        Width = screenBounds.Width / _dpiScale;
+        Height = screenBounds.Height / _dpiScale;
+
+        _originalLeft = screenBounds.Left;
+        _originalTop = screenBounds.Top;
     }
 
     public void UpdateDrawing()
     {
+        TryInitializeScreenMetrics();
         if (_dpiScale < 0)
         {
             return;
@@ -179,6 +207,7 @@ public partial class MouseTrailWindow
         Dispatcher.Invoke(() =>
         {
             if (_processNameTextBlock != null) _processNameTextBlock.Text = viewModel.ProcessName;
+            if (_directionsTextBlock != null) _directionsTextBlock.Text = viewModel.DirectionsText;
             
             UpdatePossibleGestures();
             
@@ -309,18 +338,30 @@ public partial class MouseTrailWindow
             {
                 double borderWidth = Math.Max(_processNameBorder.MinWidth, _processNameBorder.ActualWidth);
                 double processNameXPos = (Width - borderWidth) / 2;
-                processNameYPos = Height * 0.35; // 距离顶部15%的位置，居中偏上
+                processNameYPos = Height * 0.35;
                 Canvas.SetLeft(_processNameBorder, processNameXPos);
                 Canvas.SetTop(_processNameBorder, processNameYPos);
             }
+
+            double directionsYPos = processNameYPos + (_processNameBorder?.ActualHeight ?? 0) + 15;
+            if (_directionsBorder != null)
+            {
+                double borderWidth = Math.Max(_directionsBorder.MinWidth, _directionsBorder.ActualWidth);
+                Canvas.SetLeft(_directionsBorder, (Width - borderWidth) / 2);
+                Canvas.SetTop(_directionsBorder, directionsYPos);
+                _directionsBorder.Visibility = string.IsNullOrEmpty(viewModel.DirectionsText)
+                    ? Visibility.Collapsed
+                    : Visibility.Visible;
+            }
+
+            double stackYPos = directionsYPos + (string.IsNullOrEmpty(viewModel.DirectionsText) ? 0 : (_directionsBorder?.ActualHeight ?? 0) + 15);
             
             if (_possibleGesturesBorder != null)
             {
                 double borderWidth = Math.Max(_possibleGesturesBorder.MinWidth, _possibleGesturesBorder.ActualWidth);
                 double gesturesXPos = (Width - borderWidth) / 2;
-                double gesturesYPos = processNameYPos + (_processNameBorder?.ActualHeight ?? 0) + 15; // 15像素间距
                 Canvas.SetLeft(_possibleGesturesBorder, gesturesXPos);
-                Canvas.SetTop(_possibleGesturesBorder, gesturesYPos);
+                Canvas.SetTop(_possibleGesturesBorder, stackYPos);
                 _possibleGesturesBorder.Visibility = viewModel.PossibleGestures.Count > 0 
                     ? Visibility.Visible 
                     : Visibility.Collapsed;
@@ -330,9 +371,8 @@ public partial class MouseTrailWindow
             {
                 double borderWidth = Math.Max(_noMatchBorder.MinWidth, _noMatchBorder.ActualWidth);
                 double noMatchXPos = (Width - borderWidth) / 2;
-                double noMatchYPos = processNameYPos + (_processNameBorder?.ActualHeight ?? 0) + 15; // 15像素间距
                 Canvas.SetLeft(_noMatchBorder, noMatchXPos);
-                Canvas.SetTop(_noMatchBorder, noMatchYPos);
+                Canvas.SetTop(_noMatchBorder, stackYPos);
                 _noMatchBorder.Visibility = !string.IsNullOrEmpty(viewModel.NoMatchMessage) 
                     ? Visibility.Visible 
                     : Visibility.Collapsed;

@@ -150,18 +150,134 @@ public sealed class MouseGestureDetectorTests
         Assert.That(hook.DisposeCount, Is.EqualTo(2));
     }
 
+    [Test]
+    public void NormalGesture_ResolvesProcessFromEachRightClick()
+    {
+        var hook = new TestMouseHook();
+        using var detector = CreateDetector(new MouseHelper(), hook, _ => false, () => false, point => point.x < 50 ? "chrome" : "notepad");
+        var listener = Start(detector);
+        Assert.That(hook.WaitForStart(ListenerTestTimeout), Is.True);
+
+        var detected = new List<MouseGestureEventArgs>();
+        using var gotFirst = new ManualResetEventSlim(false);
+        using var gotSecond = new ManualResetEventSlim(false);
+        detector.GestureDetected += (_, args) =>
+        {
+            detected.Add(args);
+            if (detected.Count == 1) gotFirst.Set();
+            else if (detected.Count >= 2) gotSecond.Set();
+        };
+
+        RaiseHorizontalStroke(hook, 10, 20);
+        Assert.That(gotFirst.Wait(ListenerTestTimeout), Is.True);
+        RaiseHorizontalStroke(hook, 80, 20);
+        Assert.That(gotSecond.Wait(ListenerTestTimeout), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(detected, Has.Count.EqualTo(2));
+            Assert.That(detected[0].ProcessName, Is.EqualTo("chrome"));
+            Assert.That(detected[1].ProcessName, Is.EqualTo("notepad"));
+        });
+
+        detector.Stop();
+        Assert.That(listener.Join(ListenerTestTimeout), Is.True);
+    }
+
+    [Test]
+    public void CaptureTrigger_RecordsDirectionsAndLeftClickProcess()
+    {
+        var hook = new TestMouseHook();
+        using var detector = CreateDetector(new MouseHelper(), hook, _ => false, () => false, point => point.x == 1 ? "chrome" : "other");
+        var listener = Start(detector);
+        Assert.That(hook.WaitForStart(ListenerTestTimeout), Is.True);
+
+        MouseGestureEventArgs? detected = null;
+        string? liveGesture = null;
+        detector.GestureDetected += (_, args) => detected = args;
+        detector.TriggerGestureChanged += directions => liveGesture = directions;
+        var capture = detector.CaptureTriggerAsync(CancellationToken.None);
+        hook.Raise(Native.MouseMsg.WM_LBUTTONUP, new Native.POINT { x = 1, y = 1 });
+        hook.Raise(Native.MouseMsg.WM_RBUTTONDOWN, new Native.POINT { x = 10, y = 20 });
+        hook.Raise(Native.MouseMsg.WM_MOUSEMOVE, new Native.POINT { x = 20, y = 20 });
+        hook.Raise(Native.MouseMsg.WM_MOUSEMOVE, new Native.POINT { x = 60, y = 20 });
+        hook.Raise(Native.MouseMsg.WM_RBUTTONUP, new Native.POINT { x = 60, y = 20 });
+
+        Assert.That(capture.Wait(ListenerTestTimeout), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(capture.Result, Is.Not.Null);
+            Assert.That(capture.Result!.Directions, Is.EqualTo(new[] { nameof(MoveDirection.Right) }));
+            Assert.That(capture.Result.ProcessName, Is.EqualTo("chrome"));
+            Assert.That(liveGesture, Is.EqualTo("→"));
+            Assert.That(detected, Is.Null);
+        });
+
+        detector.Stop();
+        Assert.That(listener.Join(ListenerTestTimeout), Is.True);
+    }
+
+    [Test]
+    public void CaptureTrigger_KeepsWaitingOnShortClick()
+    {
+        var hook = new TestMouseHook();
+        using var detector = CreateDetector(new MouseHelper(), hook, _ => false, () => false, _ => "chrome");
+        var listener = Start(detector);
+        Assert.That(hook.WaitForStart(ListenerTestTimeout), Is.True);
+
+        using var cancellation = new CancellationTokenSource();
+        var capture = detector.CaptureTriggerAsync(cancellation.Token);
+        hook.Raise(Native.MouseMsg.WM_RBUTTONDOWN, new Native.POINT { x = 10, y = 20 });
+        Assert.That(capture.Wait(TimeSpan.FromMilliseconds(150)), Is.False);
+
+        cancellation.Cancel();
+        Assert.That(capture.Wait(ListenerTestTimeout), Is.True);
+        Assert.That(capture.Result, Is.Null);
+
+        detector.Stop();
+        Assert.That(listener.Join(ListenerTestTimeout), Is.True);
+    }
+
+    [Test]
+    public void CaptureTrigger_CapturesFullscreenGesture()
+    {
+        var hook = new TestMouseHook();
+        using var detector = CreateDetector(new MouseHelper(), hook, _ => false, () => true, _ => "game");
+        detector.SuppressWhenFullscreen = true;
+        var listener = Start(detector);
+        Assert.That(hook.WaitForStart(ListenerTestTimeout), Is.True);
+
+        var capture = detector.CaptureTriggerAsync(CancellationToken.None);
+        var down = hook.Raise(Native.MouseMsg.WM_RBUTTONDOWN, new Native.POINT { x = 10, y = 20 });
+        Assert.That(down.Handled, Is.True);
+
+        detector.Stop();
+        Assert.That(capture.Wait(ListenerTestTimeout), Is.True);
+        Assert.That(listener.Join(ListenerTestTimeout), Is.True);
+    }
+
     private static MouseGestureDetector CreateDetector(
         MouseHelper mouseHelper,
         IMouseHook hook,
         Func<Native.POINT, bool>? isTaskbarAt = null,
-        Func<bool>? isForegroundFullscreen = null)
+        Func<bool>? isForegroundFullscreen = null,
+        Func<Native.POINT, string?>? resolveProcessName = null)
         => new(
             mouseHelper,
             NullLogger<MouseGestureDetector>.Instance,
             NullLogger<global::MyGestures.Views.MouseTrailWindow>.Instance,
             hook,
             isTaskbarAt,
-            isForegroundFullscreen ?? (() => false));
+            isForegroundFullscreen ?? (() => false),
+            null,
+            resolveProcessName);
+
+    private static void RaiseHorizontalStroke(TestMouseHook hook, int startX, int y)
+    {
+        hook.Raise(Native.MouseMsg.WM_RBUTTONDOWN, new Native.POINT { x = startX, y = y });
+        hook.Raise(Native.MouseMsg.WM_MOUSEMOVE, new Native.POINT { x = startX + 10, y = y });
+        hook.Raise(Native.MouseMsg.WM_MOUSEMOVE, new Native.POINT { x = startX + 50, y = y });
+        hook.Raise(Native.MouseMsg.WM_RBUTTONUP, new Native.POINT { x = startX + 50, y = y });
+    }
 
     private static Thread Start(MouseGestureDetector detector)
     {

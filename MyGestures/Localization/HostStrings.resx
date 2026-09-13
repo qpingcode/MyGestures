@@ -80,4 +80,16 @@
   <data name="Gestures.Capture.MouseForward" xml:space="preserve">
     <value>Forward button</value>
   </data>
+  <data name="Gestures.Record.Title" xml:space="preserve">
+    <value>Record gesture</value>
+  </data>
+  <data name="Gestures.Record.Banner" xml:space="preserve">
+    <value>Click the target app, then hold the right mouse button and draw. Release to finish. Esc cancels.</value>
+  </data>
+  <data name="Gestures.Record.BannerReady" xml:space="preserve">
+    <value>Target: {{process}}. Hold the right mouse button and draw. Release to finish. Esc cancels.</value>
+  </data>
+  <data name="Gestures.Record.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
 </root>

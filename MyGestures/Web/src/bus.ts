@@ -2,6 +2,7 @@ import { t } from "./i18n";
 
 export const Methods = {
     Read: "getSettings", Save: "saveSettings", Suspend: "suspendGestures", Resume: "resumeGestures", Capture: "captureInputAction",
+    RecordTrigger: "recordTriggerGesture",
     UpdateInfo: "getUpdateInfo", CheckUpdates: "checkForUpdates", DownloadUpdate: "downloadUpdate", OpenReleases: "openReleases",
 } as const;
 export const HostEvents = { UpdateProgress: "updateProgress", CheckUpdates: "checkUpdates" } as const;
@@ -33,7 +34,7 @@ webview?.addEventListener("message", (event) => {
     else request.resolve(response.result);
 });
 function timeoutFor(method: Method): number {
-    if (method === Methods.Capture) return CaptureTimeoutMilliseconds;
+    if (method === Methods.Capture || method === Methods.RecordTrigger) return CaptureTimeoutMilliseconds;
     if (method === Methods.CheckUpdates) return CheckUpdatesTimeoutMilliseconds;
     if (method === Methods.DownloadUpdate) return DownloadTimeoutMilliseconds;
     return RequestTimeoutMilliseconds;

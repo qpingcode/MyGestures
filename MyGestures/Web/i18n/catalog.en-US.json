@@ -190,7 +190,7 @@
       "placeholders": []
     },
     {
-      "defaultValue": "Click to record",
+      "defaultValue": "Click to record in the target app",
       "references": [],
       "key": "Plugin.Settings.Gestures.ClickToRecord",
       "placeholders": []
@@ -222,6 +222,20 @@
       "references": [],
       "key": "Plugin.Settings.Gestures.Delete",
       "placeholders": []
+    },
+    {
+      "defaultValue": "Gesture deleted.",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.Deleted",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Deleted \"{{name}}\".",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.DeletedNamed",
+      "placeholders": [
+        "name"
+      ]
     },
     {
       "defaultValue": "No gestures configured",
@@ -260,7 +274,7 @@
       "placeholders": []
     },
     {
-      "defaultValue": "Click to re-record. Hold the right mouse button and draw.",
+      "defaultValue": "Click to record. Settings hide so you can click the target app, then hold the right mouse button and draw.",
       "references": [],
       "key": "Plugin.Settings.Gestures.HeaderGestureTip",
       "placeholders": []
@@ -272,7 +286,7 @@
       "placeholders": []
     },
     {
-      "defaultValue": "Only trigger this gesture in the specified processes. Leave empty to apply to all processes.",
+      "defaultValue": "Only trigger this gesture in the specified processes. Recording a gesture fills this from the window you click. Leave empty to apply to all processes.",
       "references": [],
       "key": "Plugin.Settings.Gestures.HeaderProcessTip",
       "placeholders": []
@@ -386,7 +400,55 @@
       "placeholders": []
     },
     {
-      "defaultValue": "Hold right button to draw...",
+      "defaultValue": "Cancel",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.RecordHintCancel",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Continue",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.RecordHintContinue",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Settings will hide so you can switch to the app you want.",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.RecordHintIntro",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Don't show this again",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.RecordHintSkip",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Click the application window this gesture should apply to.",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.RecordHintStepClick",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Hold the right mouse button and draw the gesture.",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.RecordHintStepDraw",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Release the right mouse button to return here. The gesture and target process will be filled in.",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.RecordHintStepRelease",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Record a gesture",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.RecordHintTitle",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Click the target app, then hold the right mouse button and draw.",
       "references": [],
       "key": "Plugin.Settings.Gestures.Recording",
       "placeholders": []
@@ -407,6 +469,18 @@
       "defaultValue": "Mouse Button",
       "references": [],
       "key": "Plugin.Settings.Gestures.TriggerMouse",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Undo",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.Undo",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Dismiss",
+      "references": [],
+      "key": "Plugin.Settings.Gestures.UndoDismiss",
       "placeholders": []
     },
     {

@@ -14,7 +14,12 @@ export type GestureSettings = {
     enabled: boolean;
     autoStart: boolean;
     gameMode: boolean;
+    skipGestureRecordHint: boolean;
     locale: string;
     theme: string;
     gestures: GestureConfig[];
+};
+export type TriggerCaptureResult = {
+    directions: Direction[];
+    processName?: string | null;
 };

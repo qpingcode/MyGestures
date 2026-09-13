@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using MyGestures.Models;
 using MyGestures.Utils;
@@ -52,10 +53,43 @@ public class GestureRegistry : IDisposable
         };
     }
     
+    public event Action<string?>? TriggerTargetChanged
+    {
+        add => mouseGestureDetector.TriggerTargetChanged += value;
+        remove => mouseGestureDetector.TriggerTargetChanged -= value;
+    }
+
+    public event Action<string>? TriggerGestureChanged
+    {
+        add => mouseGestureDetector.TriggerGestureChanged += value;
+        remove => mouseGestureDetector.TriggerGestureChanged -= value;
+    }
+
     public bool SuppressWhenFullscreen
     {
         get => mouseGestureDetector.SuppressWhenFullscreen;
         set => mouseGestureDetector.SuppressWhenFullscreen = value;
+    }
+
+    public Task<GestureCaptureResult?> CaptureTriggerAsync(CancellationToken cancellationToken)
+    {
+        var startedListener = StartListenerIfNeeded();
+        mouseGestureDetector.Resume();
+        var capture = mouseGestureDetector.CaptureTriggerAsync(cancellationToken);
+        if (!startedListener) return capture;
+        return AwaitAndStopListener(capture);
+    }
+
+    private async Task<GestureCaptureResult?> AwaitAndStopListener(Task<GestureCaptureResult?> capture)
+    {
+        try
+        {
+            return await capture.ConfigureAwait(false);
+        }
+        finally
+        {
+            StopListener();
+        }
     }
 
     public void EnableDetection(IEnumerable<GestureConfig> configs, MouseHelper mouseHelper)
@@ -63,9 +97,26 @@ public class GestureRegistry : IDisposable
         lock (lifecycleLock)
         {
             ReloadFromConfigs(configs, mouseHelper);
+            StartListenerIfNeeded();
+        }
+    }
+
+    public void DisableDetection()
+    {
+        lock (lifecycleLock)
+        {
+            ClearGestures();
+            StopListener();
+        }
+    }
+
+    private bool StartListenerIfNeeded()
+    {
+        lock (lifecycleLock)
+        {
             if (gestureThread?.IsAlive == true)
             {
-                return;
+                return false;
             }
 
             gestureThread = new Thread(mouseGestureDetector.Start)
@@ -81,14 +132,15 @@ public class GestureRegistry : IDisposable
             {
                 logger.LogWarning("Gesture detection thread did not report startup within the timeout.");
             }
+
+            return true;
         }
     }
 
-    public void DisableDetection()
+    private void StopListener()
     {
         lock (lifecycleLock)
         {
-            ClearGestures();
             mouseGestureDetector.Stop();
 
             if (gestureThread is { IsAlive: true } thread

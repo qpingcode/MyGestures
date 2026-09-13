@@ -80,4 +80,16 @@
   <data name="Gestures.Capture.MouseForward" xml:space="preserve">
     <value>鼠标前进键</value>
   </data>
+  <data name="Gestures.Record.Title" xml:space="preserve">
+    <value>录制手势</value>
+  </data>
+  <data name="Gestures.Record.Banner" xml:space="preserve">
+    <value>先点击目标应用，再按住鼠标右键画出方向。松开后完成，Esc 取消。</value>
+  </data>
+  <data name="Gestures.Record.BannerReady" xml:space="preserve">
+    <value>目标：{{process}}。按住鼠标右键画出方向。松开后完成，Esc 取消。</value>
+  </data>
+  <data name="Gestures.Record.Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
 </root>

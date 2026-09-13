@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 import HighlightText from "../components/HighlightText.vue";
 import TableToolbar from "../components/TableToolbar.vue";
 import { bus, Methods } from "../bus";
 import { captureInputAction } from "../capture-input-action";
 import { t } from "../i18n";
 import { markGesturesDirty, store } from "../store";
-import { ActionType, Direction, type GestureConfig } from "../types";
+import { ActionType, Direction, type GestureConfig, type TriggerCaptureResult } from "../types";
 
 const DIRECTION_ARROWS: Record<Direction, string> = {
     Up: "↑",
@@ -15,18 +15,13 @@ const DIRECTION_ARROWS: Record<Direction, string> = {
     Right: "→",
 };
 
-const RightMouseButton = 2;
-const GESTURE_DISTANCE_THRESHOLD = 30;
 const GESTURE_VISIBLE_DIRS = 4;
+const UndoDismissMilliseconds = 8000;
+const ImeKeyCode = 229;
 
-const recording = ref(false);
-const recordingHint = computed(() => t("Plugin.Settings.Gestures.Recording", "Hold right button to draw..."));
-const trail = ref("");
-const overlayRef = ref<HTMLElement | null>(null);
-let recordingTarget: GestureConfig | null = null;
-let directions: Direction[] = [];
-let lastPoint: { x: number; y: number } | null = null;
-let isDrawing = false;
+const hintVisible = ref(false);
+const skipHintAgain = ref(false);
+let hintResolve: ((confirmed: boolean) => void) | null = null;
 
 const gestures = computed(() => store.gestureConfigs || []);
 const tableQuery = ref("");
@@ -37,20 +32,14 @@ const headers = computed(() => ({
     action: t("Plugin.Settings.Gestures.HeaderAction", "Action Name"),
     actionTip: t("Plugin.Settings.Gestures.HeaderActionTip", "The name of this gesture action."),
     gesture: t("Plugin.Settings.Gestures.HeaderGesture", "Trigger Gesture"),
-    gestureTip: t("Plugin.Settings.Gestures.HeaderGestureTip", "Click to re-record. Hold the right mouse button and draw."),
+    gestureTip: t("Plugin.Settings.Gestures.HeaderGestureTip", "Click to record. Settings hide so you can click the target app, then hold the right mouse button and draw."),
     process: t("Plugin.Settings.Gestures.HeaderProcess", "Target Process"),
-    processTip: t("Plugin.Settings.Gestures.HeaderProcessTip", "Only trigger this gesture in the specified processes. Leave empty to apply to all processes."),
+    processTip: t("Plugin.Settings.Gestures.HeaderProcessTip", "Only trigger this gesture in the specified processes. Recording a gesture fills this from the window you click. Leave empty to apply to all processes."),
     trigger: t("Plugin.Settings.Gestures.HeaderTrigger", "Action"),
     triggerTip: t("Plugin.Settings.Gestures.HeaderTriggerTip", "The action to run. Click to choose a keyboard shortcut or mouse button."),
     enabled: t("Plugin.Settings.Gestures.HeaderEnabled", "Enabled"),
     enabledTip: t("Plugin.Settings.Gestures.HeaderEnabledTip", "Enable or disable this gesture."),
 }));
-
-watch(recording, async (value) => {
-    if (!value) return;
-    await nextTick();
-    overlayRef.value?.focus();
-});
 
 function directionsToArrows(dirs: Direction[]): string {
     return dirs.map((dir) => DIRECTION_ARROWS[dir] || dir).join(" ");
@@ -150,25 +139,54 @@ const filteredGestures = computed(() => {
 
 type EditableField = "name" | "process";
 
-const editing = ref<{ gesture: GestureConfig; field: EditableField } | null>(null);
-const editInputRef = ref<{ focus: () => void } | null>(null);
+const editing = ref<{ id: string; field: EditableField } | null>(null);
+const editInputRef = ref<{ focus: () => void; $el?: HTMLElement } | null>(null);
+const editComposing = ref(false);
 
 function processText(gesture: GestureConfig): string {
     return (gesture.processNames || []).join(", ");
 }
 
 function isEditing(gesture: GestureConfig, field: EditableField): boolean {
-    return editing.value?.gesture === gesture && editing.value.field === field;
+    return editing.value?.id === gesture.id && editing.value.field === field;
 }
 
 async function startEdit(gesture: GestureConfig, field: EditableField): Promise<void> {
-    editing.value = { gesture, field };
+    editing.value = { id: gesture.id, field };
     await nextTick();
     editInputRef.value?.focus();
 }
 
 function stopEdit(): void {
     editing.value = null;
+    editComposing.value = false;
+}
+
+function isEditInputFocused(): boolean {
+    const root = editInputRef.value?.$el;
+    const active = document.activeElement;
+    return !!(root && active && root.contains(active));
+}
+
+function onEditBlur(): void {
+    const sessionId = editing.value?.id;
+    const sessionField = editing.value?.field;
+    requestAnimationFrame(() => {
+        if (!editing.value || editComposing.value) return;
+        if (editing.value.id !== sessionId || editing.value.field !== sessionField) return;
+        if (!document.hasFocus() || isEditInputFocused()) return;
+        stopEdit();
+    });
+}
+
+function onEditKeydown(event: KeyboardEvent): void {
+    editComposing.value = event.isComposing || event.keyCode === ImeKeyCode;
+}
+
+function onEditConfirm(event: KeyboardEvent): void {
+    onEditKeydown(event);
+    if (editComposing.value) return;
+    stopEdit();
 }
 
 function markDirty(): void {
@@ -192,17 +210,50 @@ function addGesture(): void {
     void startEdit(created, "name");
 }
 
+type DeletedGesture = { gesture: GestureConfig; index: number };
+const deleted = ref<DeletedGesture | null>(null);
+let undoTimer: ReturnType<typeof setTimeout> | undefined;
+const undoMessage = computed(() => {
+    if (!deleted.value) return "";
+    const name = deleted.value.gesture.actionName.trim();
+    return name
+        ? t("Plugin.Settings.Gestures.DeletedNamed", "Deleted \"{{name}}\".", { name })
+        : t("Plugin.Settings.Gestures.Deleted", "Gesture deleted.");
+});
+
+function clearUndo(): void {
+    clearTimeout(undoTimer);
+    deleted.value = null;
+}
+
+function offerUndo(gesture: GestureConfig, index: number): void {
+    clearTimeout(undoTimer);
+    deleted.value = { gesture: JSON.parse(JSON.stringify(gesture)) as GestureConfig, index };
+    undoTimer = setTimeout(() => { deleted.value = null; }, UndoDismissMilliseconds);
+}
+
+function undoDelete(): void {
+    if (!deleted.value) return;
+    if (!store.gestureConfigs) store.gestureConfigs = [];
+    const insertAt = Math.min(Math.max(deleted.value.index, 0), store.gestureConfigs.length);
+    store.gestureConfigs.splice(insertAt, 0, deleted.value.gesture);
+    clearUndo();
+    markDirty();
+}
+
 function removeGesture(gesture: GestureConfig): void {
-    if (editing.value?.gesture === gesture) {
+    if (editing.value?.id === gesture.id) {
         stopEdit();
     }
     if (!store.gestureConfigs) return;
     const index = store.gestureConfigs.indexOf(gesture);
-    if (index >= 0) {
-        store.gestureConfigs.splice(index, 1);
-        markDirty();
-    }
+    if (index < 0) return;
+    store.gestureConfigs.splice(index, 1);
+    offerUndo(gesture, index);
+    markDirty();
 }
+
+onBeforeUnmount(clearUndo);
 
 function onProcessChange(gesture: GestureConfig, value: string): void {
     gesture.processNames = value.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
@@ -226,77 +277,45 @@ async function setAction(gesture: GestureConfig): Promise<void> {
     markDirty();
 }
 
+function askRecordHint(): Promise<boolean> {
+    if (store.skipGestureRecordHint) return Promise.resolve(true);
+    skipHintAgain.value = false;
+    hintVisible.value = true;
+    return new Promise((resolve) => { hintResolve = resolve; });
+}
+
+function finishHint(confirmed: boolean): void {
+    hintVisible.value = false;
+    hintResolve?.(confirmed);
+    hintResolve = null;
+}
+
+function confirmHint(): void {
+    if (skipHintAgain.value) store.skipGestureRecordHint = true;
+    finishHint(true);
+}
+
+function cancelHint(): void {
+    finishHint(false);
+}
+
 async function startRecording(gesture: GestureConfig): Promise<void> {
-    try { await bus.call(Methods.Suspend); }
-    catch (error) { store.error = String(error instanceof Error ? error.message : error); return; }
-    recordingTarget = gesture;
-    directions = [];
-    lastPoint = null;
-    isDrawing = false;
-    trail.value = "";
-    recording.value = true;
-}
-
-function stopRecording(commit: boolean): void {
-    recording.value = false;
-    if (commit && recordingTarget) {
-        recordingTarget.directions = [...directions];
+    if (store.capturing) return;
+    if (!(await askRecordHint())) return;
+    store.capturing = true;
+    try {
+        const result = await bus.call<TriggerCaptureResult | null>(Methods.RecordTrigger);
+        if (!result || result.directions.length === 0) return;
+        gesture.directions = [...result.directions];
+        const processName = (result.processName || "").trim().toLowerCase();
+        gesture.processNames = processName ? [processName] : [];
         markDirty();
+    } catch (error) {
+        store.error = String(error instanceof Error ? error.message : error);
+    } finally {
+        store.capturing = false;
     }
-    recordingTarget = null;
-    void bus.call(Methods.Resume).catch((error) => { store.error = String(error instanceof Error ? error.message : error); });
 }
-
-function detectDirection(currentX: number, currentY: number): void {
-    if (!lastPoint) return;
-    const deltaX = currentX - lastPoint.x;
-    const deltaY = currentY - lastPoint.y;
-    if (Math.abs(deltaX) < GESTURE_DISTANCE_THRESHOLD && Math.abs(deltaY) < GESTURE_DISTANCE_THRESHOLD) {
-        return;
-    }
-    const direction = Math.abs(deltaX) > Math.abs(deltaY)
-        ? (deltaX > 0 ? Direction.Right : Direction.Left)
-        : (deltaY > 0 ? Direction.Down : Direction.Up);
-    if (directions.length > 0 && directions[directions.length - 1] === direction) {
-        lastPoint = { x: currentX, y: currentY };
-        return;
-    }
-    directions.push(direction);
-    lastPoint = { x: currentX, y: currentY };
-    trail.value = directionsToArrows(directions);
-}
-
-function onMouseDown(event: MouseEvent): void {
-    if (event.button !== RightMouseButton) return;
-    event.preventDefault();
-    isDrawing = true;
-    directions = [];
-    lastPoint = { x: event.clientX, y: event.clientY };
-    trail.value = "";
-}
-
-function onMouseMove(event: MouseEvent): void {
-    if (!isDrawing) return;
-    event.preventDefault();
-    detectDirection(event.clientX, event.clientY);
-}
-
-function onMouseUp(event: MouseEvent): void {
-    if (event.button !== RightMouseButton || !isDrawing) return;
-    event.preventDefault();
-    stopRecording(true);
-}
-
-function onKeyDown(event: KeyboardEvent): void {
-    if (event.key === "Escape") stopRecording(false);
-}
-
-onBeforeUnmount(() => {
-    window.removeEventListener("blur", cancelRecording);
-    if (recording.value) stopRecording(false);
-});
-function cancelRecording(): void { if (recording.value) stopRecording(false); }
-onMounted(() => window.addEventListener("blur", cancelRecording));
 </script>
 
 <template>
@@ -341,9 +360,12 @@ onMounted(() => window.addEventListener("blur", cancelRecording));
                             gesture.actionName = String($event || '');
                             markDirty();
                         "
-                        @blur="stopEdit"
-                        @keydown.enter.prevent="stopEdit"
-                        @keydown.esc.prevent="stopEdit"
+                        @compositionstart="editComposing = true"
+                        @compositionend="editComposing = false"
+                        @blur="onEditBlur"
+                        @keydown="onEditKeydown"
+                        @keydown.enter.prevent="onEditConfirm"
+                        @keydown.esc.prevent="onEditConfirm"
                     />
                     <button
                         v-else
@@ -368,7 +390,7 @@ onMounted(() => window.addEventListener("blur", cancelRecording));
                         :class="{ empty: gesture.directions.length === 0 }"
                         :title="
                             gesture.directions.length === 0
-                                ? t('Plugin.Settings.Gestures.ClickToRecord', 'Click to record')
+                                ? t('Plugin.Settings.Gestures.ClickToRecord', 'Click to record in the target app')
                                 : formatGestureDisplay(gesture.directions).full
                         "
                         @click="startRecording(gesture)"
@@ -392,9 +414,12 @@ onMounted(() => window.addEventListener("blur", cancelRecording));
                         :title="t('Plugin.Settings.Gestures.ProcessHint', 'Comma-separated process names')"
                         size="small"
                         @update:value="onProcessChange(gesture, String($event || ''))"
-                        @blur="stopEdit"
-                        @keydown.enter.prevent="stopEdit"
-                        @keydown.esc.prevent="stopEdit"
+                        @compositionstart="editComposing = true"
+                        @compositionend="editComposing = false"
+                        @blur="onEditBlur"
+                        @keydown="onEditKeydown"
+                        @keydown.enter.prevent="onEditConfirm"
+                        @keydown.esc.prevent="onEditConfirm"
                     />
                     <button
                         v-else
@@ -446,18 +471,50 @@ onMounted(() => window.addEventListener("blur", cancelRecording));
             </div>
         </div>
         <div
-            v-if="recording"
-            ref="overlayRef"
-            class="gesture-record-overlay"
+            v-if="hintVisible"
+            class="record-hint-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="record-hint-title"
             tabindex="0"
-            @mousedown="onMouseDown"
-            @mousemove="onMouseMove"
-            @mouseup="onMouseUp"
-            @contextmenu.prevent
-            @keydown="onKeyDown"
+            @keydown.esc.prevent="cancelHint"
         >
-            <div class="gesture-record-hint">{{ recordingHint }}</div>
-            <div class="gesture-record-trail">{{ trail }}</div>
+            <div class="record-hint-card">
+                <h2 id="record-hint-title">{{ t("Plugin.Settings.Gestures.RecordHintTitle", "Record a gesture") }}</h2>
+                <p>{{ t("Plugin.Settings.Gestures.RecordHintIntro", "Settings will hide so you can switch to the app you want.") }}</p>
+                <ol>
+                    <li>{{ t("Plugin.Settings.Gestures.RecordHintStepClick", "Click the application window this gesture should apply to.") }}</li>
+                    <li>{{ t("Plugin.Settings.Gestures.RecordHintStepDraw", "Hold the right mouse button and draw the gesture.") }}</li>
+                    <li>{{ t("Plugin.Settings.Gestures.RecordHintStepRelease", "Release the right mouse button to return here. The gesture and target process will be filled in.") }}</li>
+                </ol>
+                <n-checkbox v-model:checked="skipHintAgain">
+                    {{ t("Plugin.Settings.Gestures.RecordHintSkip", "Don't show this again") }}
+                </n-checkbox>
+                <div class="record-hint-actions">
+                    <n-button @click="cancelHint">{{ t("Plugin.Settings.Gestures.RecordHintCancel", "Cancel") }}</n-button>
+                    <n-button type="primary" @click="confirmHint">{{ t("Plugin.Settings.Gestures.RecordHintContinue", "Continue") }}</n-button>
+                </div>
+            </div>
+        </div>
+        <div
+            v-if="deleted"
+            class="undo-bar"
+            role="status"
+            aria-live="polite"
+        >
+            <span class="undo-message">{{ undoMessage }}</span>
+            <n-button size="small" type="primary" tertiary @click="undoDelete">
+                {{ t("Plugin.Settings.Gestures.Undo", "Undo") }}
+            </n-button>
+            <button
+                type="button"
+                class="undo-dismiss"
+                :title="t('Plugin.Settings.Gestures.UndoDismiss', 'Dismiss')"
+                :aria-label="t('Plugin.Settings.Gestures.UndoDismiss', 'Dismiss')"
+                @click="clearUndo"
+            >
+                <i class="mdi mdi-close"></i>
+            </button>
         </div>
     </div>
 </template>
@@ -586,41 +643,105 @@ onMounted(() => window.addEventListener("blur", cancelRecording));
     opacity: 0.6;
 }
 
-.gesture-record-overlay {
+.record-hint-overlay {
     position: fixed;
     inset: 0;
     z-index: 300;
     background: rgba(0, 0, 0, 0.45);
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    cursor: crosshair;
-    user-select: none;
+    padding: 24px;
 }
 
-.gesture-record-hint {
-    color: var(--mt-text, #1e1e1e);
-    font-size: var(--mt-font-size-heading-2, 18px);
-    font-weight: 500;
-    margin-bottom: 20px;
-    padding: 12px 28px;
-    background: var(--mt-surface, #ffffff);
-    border: 1px solid var(--mt-accent, #3f51b5);
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+.record-hint-card {
+    width: min(520px, 100%);
+    padding: 22px 24px 20px;
+    border-radius: 14px;
+    background: var(--mt-surface, #1d1d1d);
+    border: 1px solid var(--mt-border, #2c2c2c);
+    box-shadow: 0 16px 40px var(--mt-shadow, rgba(0, 0, 0, 0.28));
+    color: var(--mt-text, #f3f1ec);
 }
 
-.gesture-record-trail {
-    color: #ffffff;
-    font-size: 48px;
-    font-family: var(--mt-font-family-mono, "Cascadia Mono", Consolas, monospace);
-    letter-spacing: 8px;
-    min-height: 64px;
-    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+.record-hint-card h2 {
+    margin: 0 0 10px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.record-hint-card p,
+.record-hint-card li {
+    color: var(--mt-text-secondary, #b3aea4);
+    line-height: 1.55;
+    font-size: 13px;
+}
+
+.record-hint-card p {
+    margin: 0 0 12px;
+}
+
+.record-hint-card ol {
+    margin: 0 0 16px;
+    padding-left: 20px;
+}
+
+.record-hint-card li + li {
+    margin-top: 6px;
+}
+
+.record-hint-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 18px;
 }
 
 .conflict-icon {
     color: #f44336;
+}
+
+.undo-bar {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    z-index: 280;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: calc(100% - 32px);
+    padding: 10px 12px 10px 16px;
+    border-radius: 12px;
+    background: var(--mt-surface, #1d1d1d);
+    border: 1px solid var(--mt-border, #2c2c2c);
+    box-shadow: 0 10px 28px var(--mt-shadow, rgba(0, 0, 0, 0.28));
+    color: var(--mt-text, #f3f1ec);
+}
+
+.undo-message {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+}
+
+.undo-dismiss {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--mt-text-tertiary, #8a857c);
+    cursor: pointer;
+}
+
+.undo-dismiss:hover {
+    background: var(--mt-surface-hover, #2a2a2a);
+    color: var(--mt-text, #f3f1ec);
 }
 </style>

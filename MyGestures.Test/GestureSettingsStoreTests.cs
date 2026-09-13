@@ -64,6 +64,7 @@ public sealed class GestureSettingsStoreTests
             Assert.That(store.Current.GameMode, Is.True);
             Assert.That(store.Current.AutoStart, Is.False);
             Assert.That(store.Current.Theme, Is.EqualTo("dark"));
+            Assert.That(store.Current.SkipGestureRecordHint, Is.False);
         });
     }
 
