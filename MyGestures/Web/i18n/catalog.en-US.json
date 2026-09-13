@@ -106,6 +106,84 @@
       "placeholders": []
     },
     {
+      "defaultValue": "Updates",
+      "references": [],
+      "key": "Gestures.Web.Update",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Version {{version}} is available.",
+      "references": [],
+      "key": "Gestures.Web.UpdateAvailable",
+      "placeholders": ["version"]
+    },
+    {
+      "defaultValue": "An update operation is already running.",
+      "references": [],
+      "key": "Gestures.Web.UpdateBusy",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Check for updates",
+      "references": [],
+      "key": "Gestures.Web.UpdateCheck",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Checking for updates...",
+      "references": [],
+      "key": "Gestures.Web.UpdateChecking",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Current version: {{version}}",
+      "references": [],
+      "key": "Gestures.Web.UpdateCurrent",
+      "placeholders": ["version"]
+    },
+    {
+      "defaultValue": "Download and restart",
+      "references": [],
+      "key": "Gestures.Web.UpdateDownload",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Downloading update... {{percent}}%",
+      "references": [],
+      "key": "Gestures.Web.UpdateDownloading",
+      "placeholders": ["percent"]
+    },
+    {
+      "defaultValue": "The update check failed. Try again.",
+      "references": [],
+      "key": "Gestures.Web.UpdateFailed",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Check GitHub for a newer installer or apply an installed update.",
+      "references": [],
+      "key": "Gestures.Web.UpdateIdle",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "You are using the latest version ({{version}}).",
+      "references": [],
+      "key": "Gestures.Web.UpdateLatest",
+      "placeholders": ["version"]
+    },
+    {
+      "defaultValue": "In-app updates are available after installing the setup package.",
+      "references": [],
+      "key": "Gestures.Web.UpdateNotInstalled",
+      "placeholders": []
+    },
+    {
+      "defaultValue": "Open download page",
+      "references": [],
+      "key": "Gestures.Web.UpdateOpenPage",
+      "placeholders": []
+    },
+    {
       "defaultValue": "Add Gesture",
       "references": [],
       "key": "Plugin.Settings.Gestures.Add",

@@ -76,6 +76,7 @@ public partial class App : Application
         var old = tray.ContextMenuStrip;
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add(localization.GetCaption("Gestures.Tray.Settings", "Settings"), null, (_, _) => ShowSettings());
+        menu.Items.Add(localization.GetCaption("Gestures.Tray.CheckUpdates", "Check for updates"), null, (_, _) => settingsWindow?.ShowAndCheckForUpdates());
         menu.Items.Add(localization.GetCaption("Gestures.Tray.Exit", "Exit"), null, (_, _) => Shutdown());
         tray.ContextMenuStrip = menu;
         old?.Dispose();

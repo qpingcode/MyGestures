@@ -8,6 +8,9 @@
   <data name="Gestures.Tray.Settings" xml:space="preserve">
     <value>Paramètres</value>
   </data>
+  <data name="Gestures.Tray.CheckUpdates" xml:space="preserve">
+    <value>Rechercher des mises à jour</value>
+  </data>
   <data name="Gestures.Tray.Exit" xml:space="preserve">
     <value>Quitter</value>
   </data>

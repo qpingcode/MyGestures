@@ -20,17 +20,32 @@ $releaseDirectory = Join-Path ([IO.Path]::GetFullPath($ArtifactsRoot)) "release/
 $notesPath = Join-Path ([IO.Path]::GetTempPath()) "mygestures-release-notes-$Version.md"
 $downloadBaseUrl = "https://github.com/$Repository/releases/download/$Tag"
 
-$assets = @(
+$required = @(
     @{ File = "$applicationId-$Version-$assetPlatform-full-setup.exe"; Display = 'Windows x64 Full Installer' },
     @{ File = "$applicationId-$Version-$assetPlatform-full-portable.zip"; Display = 'Windows x64 Full Portable' },
     @{ File = "$applicationId-$Version-$assetPlatform-lite-setup.exe"; Display = 'Windows x64 Lite Installer' },
     @{ File = "$applicationId-$Version-$assetPlatform-lite-portable.zip"; Display = 'Windows x64 Lite Portable' },
     @{ File = $checksumFileName; Display = 'SHA256 checksums' }
-) | ForEach-Object {
-    $path = Join-Path $releaseDirectory $_.File
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Release asset is missing: $path" }
-    [pscustomobject]@{ Path = (Resolve-Path -LiteralPath $path).Path; File = $_.File; Display = $_.Display }
-}
+)
+$assets = @(
+    $required | ForEach-Object {
+        $path = Join-Path $releaseDirectory $_.File
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Release asset is missing: $path" }
+        [pscustomobject]@{ Path = (Resolve-Path -LiteralPath $path).Path; File = $_.File; Display = $_.Display }
+    }
+)
+Get-ChildItem -LiteralPath $releaseDirectory -File |
+    Where-Object {
+        $_.Name -like '*-full.nupkg' -or
+        $_.Name -like 'releases.*.json' -or
+        $_.Name -like 'assets.*.json'
+    } |
+    ForEach-Object {
+        $label = if ($_.Name -like '*-full.nupkg') { 'automatic updater package' }
+            elseif ($_.Name -like 'assets.*') { 'updater asset metadata' }
+            else { 'updater release metadata' }
+        $assets += [pscustomobject]@{ Path = $_.FullName; File = $_.Name; Display = $label }
+    }
 
 $fullInstaller = $assets[0].File
 $fullPortable = $assets[1].File
@@ -49,7 +64,7 @@ $litePortable = $assets[3].File
 
 Update ring: **$label**
 
-> ``SHA256SUMS.txt`` can be used to verify the downloads.
+> ``SHA256SUMS.txt`` can be used to verify the downloads. The ``.nupkg`` and ``releases.*.json`` assets are used by in-app updates.
 
 ## What's Changed
 "@ | Set-Content -LiteralPath $notesPath -Encoding utf8

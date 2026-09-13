@@ -3,6 +3,21 @@ import { computed } from "vue";
 import { t } from "../i18n";
 import { store } from "../store";
 import { Theme } from "../theme";
+import { UpdateStatus, checkForUpdates, downloadUpdate, openReleases, update, useUpdateEvents } from "../update";
+
+useUpdateEvents();
+const busy = computed(() => update.status === UpdateStatus.Checking || update.status === UpdateStatus.Downloading);
+const updateMessage = computed(() => {
+    if (update.status === UpdateStatus.Checking) return t("Gestures.Web.UpdateChecking", "Checking for updates...");
+    if (update.status === UpdateStatus.Downloading) return t("Gestures.Web.UpdateDownloading", "Downloading update... {{percent}}%", { percent: update.progress });
+    if (update.status === UpdateStatus.NoUpdate) return t("Gestures.Web.UpdateLatest", "You are using the latest version ({{version}}).", { version: update.currentVersion });
+    if (update.status === UpdateStatus.UpdateAvailable) return t("Gestures.Web.UpdateAvailable", "Version {{version}} is available.", { version: update.availableVersion });
+    if (update.status === UpdateStatus.NotInstalled) return t("Gestures.Web.UpdateNotInstalled", "In-app updates are available after installing the setup package.");
+    if (update.status === UpdateStatus.Busy) return t("Gestures.Web.UpdateBusy", "An update operation is already running.");
+    if (update.status === UpdateStatus.Error) return update.error || t("Gestures.Web.UpdateFailed", "The update check failed. Try again.");
+    return t("Gestures.Web.UpdateIdle", "Check GitHub for a newer installer or apply an installed update.");
+});
+const currentVersionLabel = computed(() => t("Gestures.Web.UpdateCurrent", "Current version: {{version}}", { version: update.currentVersion || "—" }));
 
 const localeOptions = [
     { label: "English", value: "en-US" },
@@ -78,6 +93,44 @@ const themeOptions = computed(() => [
                 @update:value="store.gameMode = !!$event"
             />
         </article>
+        <article class="setting update">
+            <div class="copy">
+                <h2>{{ t("Gestures.Web.Update", "Updates") }}</h2>
+                <p>{{ currentVersionLabel }}</p>
+                <p>{{ updateMessage }}</p>
+                <div v-if="update.status === UpdateStatus.Downloading" class="progress" role="progressbar" :aria-valuenow="update.progress" aria-valuemin="0" aria-valuemax="100">
+                    <span :style="{ width: update.progress + '%' }"></span>
+                </div>
+            </div>
+            <div class="update-actions">
+                <n-button
+                    v-if="update.status === UpdateStatus.UpdateAvailable"
+                    type="primary"
+                    :loading="busy"
+                    @click="downloadUpdate"
+                >
+                    {{ update.installed
+                        ? t("Gestures.Web.UpdateDownload", "Download and restart")
+                        : t("Gestures.Web.UpdateOpenPage", "Open download page") }}
+                </n-button>
+                <n-button
+                    v-else-if="update.status === UpdateStatus.NotInstalled"
+                    secondary
+                    @click="openReleases"
+                >
+                    {{ t("Gestures.Web.UpdateOpenPage", "Open download page") }}
+                </n-button>
+                <n-button
+                    v-else
+                    secondary
+                    :loading="update.status === UpdateStatus.Checking"
+                    :disabled="busy"
+                    @click="checkForUpdates"
+                >
+                    {{ t("Gestures.Web.UpdateCheck", "Check for updates") }}
+                </n-button>
+            </div>
+        </article>
     </section>
 </template>
 
@@ -149,5 +202,29 @@ p {
 
 .theme-option i {
     font-size: 16px;
+}
+
+.setting.update {
+    align-items: flex-start;
+}
+
+.update-actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+.progress {
+    margin-top: 12px;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--mt-chip);
+}
+
+.progress span {
+    display: block;
+    height: 100%;
+    background: var(--mt-accent);
 }
 </style>

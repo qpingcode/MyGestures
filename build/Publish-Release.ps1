@@ -95,6 +95,18 @@ foreach ($asset in @(
     $destination = Join-Path $releaseDirectory "$applicationId-$Version-$assetPlatform-$flavorName-$($asset.Suffix)"
     Copy-Item -LiteralPath $source -Destination $destination -Force
 }
+foreach ($updaterName in @(
+    "$applicationId-$Version-$packageChannel-full.nupkg",
+    "releases.$packageChannel.json"
+)) {
+    $source = Join-Path $packageDirectory $updaterName
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Updater asset is missing: $source" }
+    Copy-Item -LiteralPath $source -Destination (Join-Path $releaseDirectory $updaterName) -Force
+}
+$assetsManifest = Join-Path $packageDirectory "assets.$packageChannel.json"
+if (Test-Path -LiteralPath $assetsManifest -PathType Leaf) {
+    Copy-Item -LiteralPath $assetsManifest -Destination (Join-Path $releaseDirectory "assets.$packageChannel.json") -Force
+}
 Get-ChildItem -LiteralPath $releaseDirectory -File |
     Where-Object Name -ne $checksumFileName | Sort-Object Name |
     ForEach-Object { '{0}  {1}' -f (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name } |

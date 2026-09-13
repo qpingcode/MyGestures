@@ -19,9 +19,15 @@ public partial class SettingsWindow : Window
     private const string WebEntryFileName = "index.html";
     internal const string ReadSettingsMethod = "getSettings";
     internal const string SaveSettingsMethod = "saveSettings";
+    internal const string UpdateInfoMethod = "getUpdateInfo";
+    internal const string CheckUpdatesMethod = "checkForUpdates";
+    internal const string DownloadUpdateMethod = "downloadUpdate";
+    internal const string OpenReleasesMethod = "openReleases";
     private const string SuspendGesturesMethod = "suspendGestures";
     private const string ResumeGesturesMethod = "resumeGestures";
     private const string CaptureActionMethod = "captureInputAction";
+    private const string UpdateProgressEvent = "updateProgress";
+    private const string CheckUpdatesEvent = "checkUpdates";
     private const string WebViewDataDirectoryName = "WebView2";
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
     private readonly GestureSettingsStore store;
@@ -29,17 +35,19 @@ public partial class SettingsWindow : Window
     private readonly MouseHelper mouse;
     private readonly LocalizationService localization;
     private readonly AutoStartService autoStart;
+    private readonly UpdateService updates;
     private bool exiting;
     private bool initialized;
     private bool recordingSuspended;
 
-    public SettingsWindow(GestureSettingsStore store, GestureRegistry gestures, MouseHelper mouse, LocalizationService localization, AutoStartService? autoStart = null)
+    public SettingsWindow(GestureSettingsStore store, GestureRegistry gestures, MouseHelper mouse, LocalizationService localization, AutoStartService? autoStart = null, UpdateService? updates = null)
     {
         this.store = store;
         this.gestures = gestures;
         this.mouse = mouse;
         this.localization = localization;
         this.autoStart = autoStart ?? new AutoStartService();
+        this.updates = updates ?? new UpdateService();
         InitializeComponent();
         ApplyAppearance(store.Current.Theme);
         Loaded += OnLoaded;
@@ -78,65 +86,96 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void OnWebMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    public void ShowAndCheckForUpdates()
+    {
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
+        if (Browser.CoreWebView2 != null)
+            PostEvent(Browser.CoreWebView2, CheckUpdatesEvent);
+    }
+
+    private async void OnWebMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
         if (!e.Source.StartsWith(WebOrigin, StringComparison.OrdinalIgnoreCase)) return;
+        var web = Browser.CoreWebView2;
         string? id = null;
         try
         {
             var request = JsonSerializer.Deserialize<WebRequest>(e.WebMessageAsJson, JsonOptions) ?? throw new InvalidDataException("Empty Web request.");
             id = request.Id;
-            object? result;
-            switch (request.Method)
-            {
-                case ReadSettingsMethod:
-                    result = store.Current;
-                    break;
-                case SaveSettingsMethod:
-                    var settings = request.Payload.Deserialize<GestureSettings>(JsonOptions) ?? throw new InvalidDataException("Empty settings.");
-                    try { autoStart.Apply(settings.AutoStart); }
-                    catch (Exception exception)
-                    {
-                        System.Diagnostics.Trace.TraceError("Automatic startup could not be updated: {0}", exception);
-                        throw new InvalidOperationException(localization.GetCaption("Gestures.Error.AutoStart", "MyGestures could not change automatic startup."));
-                    }
-                    store.Save(settings);
-                    gestures.SuppressWhenFullscreen = settings.GameMode;
-                    if (settings.Enabled) gestures.EnableDetection(settings.Gestures, mouse);
-                    else gestures.DisableDetection();
-                    if (recordingSuspended) gestures.SuspendDetection();
-                    Dispatcher.Invoke(() => ApplyAppearance(settings.Theme));
-                    result = store.Current;
-                    break;
-                case SuspendGesturesMethod:
-                    recordingSuspended = true;
-                    gestures.SuspendDetection();
-                    result = new { success = true };
-                    break;
-                case ResumeGesturesMethod:
-                    ResumeDetection();
-                    result = new { success = true };
-                    break;
-                case CaptureActionMethod:
-                    var wasSuspended = recordingSuspended;
-                    gestures.SuspendDetection();
-                    try
-                    {
-                        var capture = new InputActionCaptureWindow(localization, request.Payload.Deserialize<InputActionCaptureWindow.CapturedAction>(JsonOptions)) { Owner = this };
-                        result = capture.ShowDialog() == true ? capture.Result : null;
-                    }
-                    finally { if (!wasSuspended) ResumeDetection(); }
-                    break;
-                default:
-                    throw new NotSupportedException("Unknown settings method.");
-            }
-            Browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { id, result }, JsonOptions));
+            var result = await HandleRequest(request, web);
+            web.PostWebMessageAsJson(JsonSerializer.Serialize(new { id, result }, JsonOptions));
         }
         catch (Exception exception)
         {
             System.Diagnostics.Trace.TraceError("Settings request failed: {0}", exception);
-            Browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { id, error = localization.GetCaption("Gestures.Error.Save", "The operation failed. Check your configuration and try again.") }, JsonOptions));
+            var message = exception is InvalidOperationException
+                ? exception.Message
+                : localization.GetCaption("Gestures.Error.Save", "The operation failed. Check your configuration and try again.");
+            web.PostWebMessageAsJson(JsonSerializer.Serialize(new { id, error = message }, JsonOptions));
         }
+    }
+
+    private async Task<object?> HandleRequest(WebRequest request, CoreWebView2 web)
+    {
+        switch (request.Method)
+        {
+            case ReadSettingsMethod:
+                return store.Current;
+            case SaveSettingsMethod:
+                var settings = request.Payload.Deserialize<GestureSettings>(JsonOptions) ?? throw new InvalidDataException("Empty settings.");
+                try { autoStart.Apply(settings.AutoStart); }
+                catch (Exception exception)
+                {
+                    System.Diagnostics.Trace.TraceError("Automatic startup could not be updated: {0}", exception);
+                    throw new InvalidOperationException(localization.GetCaption("Gestures.Error.AutoStart", "MyGestures could not change automatic startup."));
+                }
+                store.Save(settings);
+                gestures.SuppressWhenFullscreen = settings.GameMode;
+                if (settings.Enabled) gestures.EnableDetection(settings.Gestures, mouse);
+                else gestures.DisableDetection();
+                if (recordingSuspended) gestures.SuspendDetection();
+                Dispatcher.Invoke(() => ApplyAppearance(settings.Theme));
+                return store.Current;
+            case UpdateInfoMethod:
+                return updates.Describe();
+            case CheckUpdatesMethod:
+                return await updates.CheckForUpdatesAsync();
+            case DownloadUpdateMethod:
+                var progress = new Progress<int>(percent => PostEvent(web, UpdateProgressEvent, percent));
+                await updates.DownloadAndPrepareUpdateAsync(progress);
+                Dispatcher.Invoke(() => Application.Current.Shutdown());
+                return new { success = true };
+            case OpenReleasesMethod:
+                UpdateService.OpenReleasesPage();
+                return new { success = true };
+            case SuspendGesturesMethod:
+                recordingSuspended = true;
+                gestures.SuspendDetection();
+                return new { success = true };
+            case ResumeGesturesMethod:
+                ResumeDetection();
+                return new { success = true };
+            case CaptureActionMethod:
+                var wasSuspended = recordingSuspended;
+                gestures.SuspendDetection();
+                try
+                {
+                    var capture = new InputActionCaptureWindow(localization, request.Payload.Deserialize<InputActionCaptureWindow.CapturedAction>(JsonOptions)) { Owner = this };
+                    return capture.ShowDialog() == true ? capture.Result : null;
+                }
+                finally { if (!wasSuspended) ResumeDetection(); }
+            default:
+                throw new NotSupportedException("Unknown settings method.");
+        }
+    }
+
+    private void PostEvent(CoreWebView2 web, string eventName, int? percent = null)
+    {
+        void Send() => web.PostWebMessageAsJson(JsonSerializer.Serialize(new { eventName, percent }, JsonOptions));
+        if (Dispatcher.CheckAccess()) Send();
+        else Dispatcher.Invoke(Send);
     }
 
     private void ApplyAppearance(string theme)
