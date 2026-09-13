@@ -68,7 +68,7 @@ jobs:
               } elseif (
                   $env:GITHUB_REF -in @('refs/heads/main', 'refs/heads/master') -and
                   $env:ACTOR -ne 'github-actions[bot]' -and
-                  $env:COMMIT_MESSAGE -notlike '*[skip release]*'
+                  $env:COMMIT_MESSAGE -notmatch '\[skip release\]'
               ) {
                   $publish = $true
               }
